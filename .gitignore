@@ -1,0 +1,19 @@
+# Build output
+bin/
+build/
+.gradle/
+out/
+
+# Dependencies / SDKs
+javafx-sdk-*/
+*.zip
+*.tar.gz
+
+# IDE configs
+.idea/
+.vscode/
+*.iml
+
+# OS files
+.DS_Store
+Thumbs.db
