@@ -5,7 +5,6 @@ build/
 out/
 
 # Dependencies / SDKs
-javafx-sdk-*/
 *.zip
 *.tar.gz
 
@@ -17,3 +16,4 @@ javafx-sdk-*/
 # OS files
 .DS_Store
 Thumbs.db
+
