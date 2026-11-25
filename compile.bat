@@ -12,7 +12,7 @@ if not exist "%JAVAFX_LIB%" (
 if not exist bin mkdir bin
 
 echo [Room Planner] Compiling...
-javac -encoding UTF-8 --module-path "%JAVAFX_LIB%" --add-modules javafx.controls,javafx.swing,javafx.graphics -d bin src\main\java\com\roomplanner\model\*.java src\main\java\com\roomplanner\ui\*.java src\main\java\com\roomplanner\*.java
+javac -encoding UTF-8 --module-path "%JAVAFX_LIB%" --add-modules javafx.controls,javafx.swing,javafx.graphics -d bin src\main\java\com\roomplanner\model\*.java src\main\java\com\roomplanner\service\*.java src\main\java\com\roomplanner\ui\*.java src\main\java\com\roomplanner\*.java
 if %ERRORLEVEL% neq 0 (
     echo [ERROR] Compilation failed.
     exit /b 1

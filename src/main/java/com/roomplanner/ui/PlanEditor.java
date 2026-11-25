@@ -255,6 +255,23 @@ public class PlanEditor extends JPanel {
         return placed;
     }
 
+    /** 외부(쇼핑 추천 등)에서 커스텀 치수/이름으로 생성된 가구를 중앙에 배치하고 선택한다. */
+    public Furniture addCustomFurnitureAtCenter(Furniture custom) {
+        Point2D center = screenToWorld(getWidth() / 2.0, getHeight() / 2.0);
+        double baseX = gridSnap ? snap(center.x(), 100) : center.x();
+        double baseY = gridSnap ? snap(center.y(), 100) : center.y();
+
+        custom.setX(baseX);
+        custom.setY(baseY);
+
+        pushUndo();
+        setTool(Tool.SELECT);
+        plan.addFurniture(custom);
+        selected = custom;
+        repaint();
+        return custom;
+    }
+
     /** 가구 배치 도구로 전환하고, 놓을 가구 종류를 정한다. */
     public void setFurnitureType(Furniture.Type type) {
         furnitureType = type;

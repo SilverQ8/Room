@@ -4,6 +4,7 @@ import com.roomplanner.model.Furniture;
 import com.roomplanner.model.Plan;
 import com.roomplanner.model.PlanIO;
 import com.roomplanner.model.SamplePlan;
+import com.roomplanner.service.NaverShoppingService;
 
 import javax.swing.*;
 import javax.swing.filechooser.FileNameExtensionFilter;
@@ -23,6 +24,7 @@ public class MainFrame extends JFrame {
     private final CatalogPanel catalog = new CatalogPanel(this::onCatalogPick);
     private final JLabel statusLabel = new JLabel(" ");
     private final Map<PlanEditor.Tool, JToggleButton> toolButtons = new EnumMap<>(PlanEditor.Tool.class);
+    private final NaverShoppingService shoppingService = new NaverShoppingService();
     private JSpinner thicknessSpinner;
     private JSpinner heightSpinner;
     private boolean syncingSpinners;
@@ -68,6 +70,8 @@ public class MainFrame extends JFrame {
         add(catalog, BorderLayout.WEST);
         add(tabs, BorderLayout.CENTER);
         add(statusLabel, BorderLayout.SOUTH);
+
+        catalog.setOnRecommendAction(this::openRecommendationDialog);
 
         toolButtons.get(PlanEditor.Tool.SELECT).setSelected(true);
         editor.setPlan(SamplePlan.create());   // 처음엔 예제를 보여 준다
@@ -148,7 +152,25 @@ public class MainFrame extends JFrame {
         });
         addButton(bar, "저장", this::save);
         addButton(bar, "불러오기", this::load);
+
+        bar.addSeparator();
+        JButton recBtn = new JButton("🔍 가구 쇼핑 추천");
+        recBtn.setFocusable(false);
+        recBtn.setFont(recBtn.getFont().deriveFont(Font.BOLD, 12f));
+        recBtn.setForeground(new Color(0x58, 0xa6, 0xff));
+        recBtn.addActionListener(e -> openRecommendationDialog());
+        bar.add(recBtn);
+
         return bar;
+    }
+
+    private void openRecommendationDialog() {
+        RecommendationDialog dlg = new RecommendationDialog(this, shoppingService, f -> {
+            tabs.setSelectedIndex(0);
+            editor.addCustomFurnitureAtCenter(f);
+            editor.requestFocusInWindow();
+        });
+        dlg.setVisible(true);
     }
 
     private void addButton(JToolBar bar, String text, Runnable action) {

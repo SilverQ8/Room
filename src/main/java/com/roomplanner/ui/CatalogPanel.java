@@ -75,6 +75,21 @@ public class CatalogPanel extends JPanel {
         add(scroll, BorderLayout.CENTER);
     }
 
+    public void setOnRecommendAction(Runnable onRecommendAction) {
+        JButton recBtn = new JButton("🔍 네이버 쇼핑 맞춤 추천");
+        recBtn.setFocusable(false);
+        recBtn.setBackground(CARD);
+        recBtn.setForeground(ACCENT);
+        recBtn.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createMatteBorder(1, 0, 0, 0, LINE),
+                BorderFactory.createEmptyBorder(12, 14, 12, 14)
+        ));
+        recBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        recBtn.addActionListener(e -> onRecommendAction.run());
+        add(recBtn, BorderLayout.SOUTH);
+        revalidate();
+    }
+
     /** 지금 '가구 배치' 중인 종류를 강조한다 (없으면 null). */
     public void setActive(Furniture.Type type) {
         active = type;
