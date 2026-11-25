@@ -1,11 +1,9 @@
 @echo off
 setlocal
 cd /d "%~dp0"
-echo [3D Room Planner] Launching 3D Furniture Planner Application...
+if "%JAVAFX_LIB%"=="" set "JAVAFX_LIB=%~dp0..\Room-main\javafx-sdk-21.0.3\lib"
 
-java --module-path "javafx-sdk-21.0.3/lib" --add-modules javafx.controls,javafx.graphics,javafx.fxml -cp bin com.roomplanner.Main
+call "%~dp0compile.bat"
+if %ERRORLEVEL% neq 0 exit /b 1
 
-if %ERRORLEVEL% neq 0 (
-    echo [ERROR] Application failed to start.
-    pause
-)
+java -Dfile.encoding=UTF-8 --module-path "%JAVAFX_LIB%" --add-modules javafx.controls,javafx.swing -cp bin com.roomplanner.Main
