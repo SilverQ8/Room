@@ -1,6 +1,7 @@
 @echo off
 setlocal
 cd /d "%~dp0"
+if "%JAVAFX_LIB%"=="" if exist "%~dp0javafx-sdk-21.0.3\lib" set "JAVAFX_LIB=%~dp0javafx-sdk-21.0.3\lib"
 if "%JAVAFX_LIB%"=="" set "JAVAFX_LIB=%~dp0..\Room-main\javafx-sdk-21.0.3\lib"
 
 call "%~dp0compile.bat"

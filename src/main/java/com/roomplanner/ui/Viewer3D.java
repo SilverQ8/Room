@@ -56,8 +56,15 @@ public class Viewer3D extends JFXPanel {
     private double lastX, lastY;
 
     private final PhongMaterial wallMat = material(Color.web("#ece8e0"));
-    private final PhongMaterial glassMat = material(Color.web("#7fb8e8", 0.45));
+    private final PhongMaterial glassMat = createGlassMaterial();
     private final PhongMaterial groundMat = material(Color.web("#9fabb6"));
+
+    private static PhongMaterial createGlassMaterial() {
+        PhongMaterial m = new PhongMaterial(Color.color(0.65, 0.85, 1.0, 0.38));
+        m.setSpecularColor(Color.color(0.8, 0.8, 0.8));
+        m.setSpecularPower(32.0);
+        return m;
+    }
 
     public Viewer3D() {
         Platform.setImplicitExit(false);
@@ -149,23 +156,32 @@ public class Viewer3D extends JFXPanel {
         }
         if (minX > maxX) { minX = 0; maxX = 5000; minY = 0; maxY = 4000; }
 
-        for (Wall w : plan.getWalls()) addWall(w, plan.openingsOf(w));
+        // 1. 방 바닥 (Floor)
         for (Room r : plan.getRooms()) addFloor(r);
 
+        // 2. 가구 (Furniture) - 불투명이므로 유리창보다 먼저 렌더링되어야 창문 뒤로 투과됨
         Set<Furniture> colliding = plan.collidingFurniture();
         for (Furniture f : plan.getFurniture()) {
             world.getChildren().add(FurnitureModels.build(f, colliding.contains(f)));
         }
 
+        // 3. 벽체 (Walls) & 창문 유리(Glasses) 분리 수집
+        List<Box> windowGlasses = new ArrayList<>();
+        for (Wall w : plan.getWalls()) addWall(w, plan.openingsOf(w), windowGlasses);
+
         double cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
         double extent = Math.max(Math.max(maxX - minX, maxY - minY), 3000);
 
+        // 4. 바깥 지면 (Ground)
         Box ground = new Box(extent * 14, 10, extent * 14);   // 충분히 크게: 화면 가장자리가 보이지 않도록
         ground.setMaterial(groundMat);
         ground.setTranslateX(cx);
         ground.setTranslateY(12);
         ground.setTranslateZ(-cy);
         world.getChildren().add(ground);
+
+        // 5. [중요] 반투명 창문 유리는 깊이 버퍼(Z-Buffer) 가림 현상 방지를 위해 모든 불투명 물체 뒤에 마지막으로 추가
+        world.getChildren().addAll(windowGlasses);
 
         pivot.setX(cx);
         pivot.setY(-800);
@@ -178,7 +194,7 @@ public class Viewer3D extends JFXPanel {
     }
 
     /** 벽 하나를 상자(Box) 조각들로 세운다. 문/창문 부분은 비워 둔다. */
-    private void addWall(Wall w, List<Opening> openings) {
+    private void addWall(Wall w, List<Opening> openings, List<Box> windowGlasses) {
         double len = w.length();
         if (len < 1) return;
         double h = w.height(), t = w.thickness();
@@ -196,7 +212,9 @@ public class Viewer3D extends JFXPanel {
             if (o.sill() > 0) pieces.add(new double[]{a, b, 0, Math.min(o.sill(), h)});
             if (top < h) pieces.add(new double[]{a, b, top, h});
             if (o.type() == Opening.Type.WINDOW && top > o.sill()) {
-                addBox(w, ux, uy, deg, a, b, o.sill(), top, t * 0.25, glassMat);
+                // 유리창은 따로 모아 모든 불투명 물체 렌더링 후 추가
+                Box glass = createBox(w, ux, uy, deg, a, b, o.sill(), top, t * 0.15, glassMat);
+                if (glass != null) windowGlasses.add(glass);
             }
             cur = b;
         }
@@ -206,14 +224,15 @@ public class Viewer3D extends JFXPanel {
             // 벽 양 끝은 두께의 절반만큼 늘려서 모서리가 빈틈없이 만나게 한다 (2D의 CAP_SQUARE와 같은 규칙)
             double a = p[0] - (p[0] <= 1e-6 ? t / 2 : 0);
             double b = p[1] + (p[1] >= len - 1e-6 ? t / 2 : 0);
-            addBox(w, ux, uy, deg, a, b, p[2], p[3], t, wallMat);
+            Box wallPiece = createBox(w, ux, uy, deg, a, b, p[2], p[3], t, wallMat);
+            if (wallPiece != null) world.getChildren().add(wallPiece);
         }
     }
 
-    private void addBox(Wall w, double ux, double uy, double deg,
-                        double a, double b, double y0, double y1, double depth, PhongMaterial mat) {
+    private Box createBox(Wall w, double ux, double uy, double deg,
+                          double a, double b, double y0, double y1, double depth, PhongMaterial mat) {
         double length = b - a, height = y1 - y0;
-        if (length <= 0 || height <= 0) return;
+        if (length <= 0 || height <= 0) return null;
         double mid = (a + b) / 2;
         Box box = new Box(length, height, depth);
         box.setMaterial(mat);
@@ -222,7 +241,7 @@ public class Viewer3D extends JFXPanel {
         box.setTranslateZ(-(w.start().y() + uy * mid));
         box.setRotationAxis(Rotate.Y_AXIS);
         box.setRotate(deg);
-        world.getChildren().add(box);
+        return box;
     }
 
     /** 방 바닥: 다각형을 삼각형으로 쪼개 TriangleMesh로 만든다. */

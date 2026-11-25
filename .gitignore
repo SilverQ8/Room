@@ -1,5 +1,7 @@
 # Build output
 bin/
+bin-test/
+smoke-out/
 build/
 .gradle/
 out/
