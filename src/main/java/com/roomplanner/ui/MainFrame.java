@@ -58,7 +58,7 @@ public class MainFrame extends JFrame {
         add(tabs, BorderLayout.CENTER);
         add(statusLabel, BorderLayout.SOUTH);
 
-        toolButtons.get(PlanEditor.Tool.WALL).setSelected(true);
+        toolButtons.get(PlanEditor.Tool.SELECT).setSelected(true);
         editor.setPlan(SamplePlan.create());   // 처음엔 예제를 보여 준다
     }
 

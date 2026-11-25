@@ -52,7 +52,7 @@ public class PlanEditor extends JPanel {
     private boolean pendingFit;
 
     // ---- 도구/모드 ----
-    private Tool tool = Tool.WALL;
+    private Tool tool = Tool.SELECT;
     private boolean gridSnap = true;
     private boolean ortho = false;
     private boolean objectSnap = true;
