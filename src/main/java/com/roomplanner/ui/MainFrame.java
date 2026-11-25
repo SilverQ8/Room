@@ -23,6 +23,9 @@ public class MainFrame extends JFrame {
     private final CatalogPanel catalog = new CatalogPanel(this::onCatalogPick);
     private final JLabel statusLabel = new JLabel(" ");
     private final Map<PlanEditor.Tool, JToggleButton> toolButtons = new EnumMap<>(PlanEditor.Tool.class);
+    private JSpinner thicknessSpinner;
+    private JSpinner heightSpinner;
+    private boolean syncingSpinners;
 
     public MainFrame() {
         super("Room Planner — 2D 설계 → 3D 입체");
@@ -47,6 +50,14 @@ public class MainFrame extends JFrame {
         editor.setToolListener(t -> {
             toolButtons.get(t).setSelected(true);
             catalog.setActive(t == PlanEditor.Tool.FURNITURE ? editor.getFurnitureType() : null);   // 배치 중인 종류 강조
+        });
+        editor.setSelectionListener(sel -> {
+            if (sel instanceof com.roomplanner.model.Wall w && thicknessSpinner != null && heightSpinner != null) {
+                syncingSpinners = true;
+                thicknessSpinner.setValue((int) Math.round(w.thickness()));
+                heightSpinner.setValue((int) Math.round(w.height()));
+                syncingSpinners = false;
+            }
         });
 
         statusLabel.setBorder(BorderFactory.createEmptyBorder(3, 8, 3, 8));
@@ -98,15 +109,19 @@ public class MainFrame extends JFrame {
         bar.addSeparator();
 
         bar.add(new JLabel(" 벽 두께(mm) "));
-        JSpinner thickness = new JSpinner(new SpinnerNumberModel(150, 50, 600, 10));
-        thickness.addChangeListener(e -> editor.setWallThickness(((Number) thickness.getValue()).doubleValue()));
-        thickness.setMaximumSize(thickness.getPreferredSize());
-        bar.add(thickness);
+        thicknessSpinner = new JSpinner(new SpinnerNumberModel(150, 50, 600, 10));
+        thicknessSpinner.addChangeListener(e -> {
+            if (!syncingSpinners) editor.setWallThickness(((Number) thicknessSpinner.getValue()).doubleValue());
+        });
+        thicknessSpinner.setMaximumSize(thicknessSpinner.getPreferredSize());
+        bar.add(thicknessSpinner);
         bar.add(new JLabel("  벽 높이(mm) "));
-        JSpinner height = new JSpinner(new SpinnerNumberModel(2400, 1000, 5000, 100));
-        height.addChangeListener(e -> editor.setWallHeight(((Number) height.getValue()).doubleValue()));
-        height.setMaximumSize(height.getPreferredSize());
-        bar.add(height);
+        heightSpinner = new JSpinner(new SpinnerNumberModel(2400, 1000, 5000, 100));
+        heightSpinner.addChangeListener(e -> {
+            if (!syncingSpinners) editor.setWallHeight(((Number) heightSpinner.getValue()).doubleValue());
+        });
+        heightSpinner.setMaximumSize(heightSpinner.getPreferredSize());
+        bar.add(heightSpinner);
         return bar;
     }
 
@@ -118,7 +133,7 @@ public class MainFrame extends JFrame {
         addButton(bar, "색상(C)", editor::recolorSelected);
         addButton(bar, "이름(N)", editor::renameSelected);
         addButton(bar, "회전(R)", editor::rotateSelected);
-        addButton(bar, "가구 크기", editor::resizeSelected);
+        addButton(bar, "크기/길이", editor::resizeSelected);
         addButton(bar, "삭제(Del)", editor::deleteSelected);
         addButton(bar, "실행 취소", editor::undo);
         addButton(bar, "전체 보기", editor::zoomExtents);

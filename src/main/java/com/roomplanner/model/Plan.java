@@ -40,6 +40,25 @@ public class Plan {
         openings.removeIf(o -> o.wall() == w);
     }
 
+    /** 기존 벽을 새 벽(치수/좌표 변경)으로 교체한다. 연결된 개구부도 함께 갱신. */
+    public void replaceWall(Wall oldWall, Wall newWall) {
+        int idx = -1;
+        for (int i = 0; i < walls.size(); i++) {
+            if (walls.get(i) == oldWall) { idx = i; break; }
+        }
+        if (idx >= 0) {
+            walls.set(idx, newWall);
+            double newLen = newWall.length();
+            for (int i = 0; i < openings.size(); i++) {
+                Opening o = openings.get(i);
+                if (o.wall() == oldWall) {
+                    double offset = Math.min(o.offset(), Math.max(0, newLen - o.width()));
+                    openings.set(i, new Opening(o.type(), newWall, offset, o.width(), o.sill(), o.height()));
+                }
+            }
+        }
+    }
+
     public void removeRoom(Room r) { rooms.removeIf(x -> x == r); }
     public void removeOpening(Opening o) { openings.removeIf(x -> x == o); }
     public void removeFurniture(Furniture f) { furniture.removeIf(x -> x == f); }

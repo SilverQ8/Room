@@ -11,6 +11,7 @@ import com.roomplanner.model.Wall;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
+import java.awt.geom.Ellipse2D;
 import java.awt.geom.Line2D;
 import java.awt.geom.Path2D;
 import java.util.ArrayDeque;
@@ -74,6 +75,9 @@ public class PlanEditor extends JPanel {
     private Point2D dragOffset;            // 잡은 위치와 가구 중심의 차이
     private String dragSnapshot;           // 끌기 시작 전 상태 (움직였을 때만 실행 취소에 저장)
     private boolean dragMoved;
+    private Wall draggingWall;             // 선택 도구로 끝점을 끌고 있는 벽
+    private int dragWallHandle = -1;       // 0: start, 1: end
+    private Consumer<Object> selectionListener;
 
     private int lastMouseX, lastMouseY;
     private boolean panning;
@@ -128,8 +132,35 @@ public class PlanEditor extends JPanel {
         repaint();
     }
 
-    public void setWallThickness(double v) { wallThickness = v; }
-    public void setWallHeight(double v) { wallHeight = v; }
+    public void setWallThickness(double v) {
+        wallThickness = v;
+        if (selected instanceof Wall w && Math.abs(w.thickness() - v) > 1e-4) {
+            pushUndo();
+            Wall newWall = new Wall(w.start(), w.end(), v, w.height());
+            plan.replaceWall(w, newWall);
+            setSelected(newWall);
+            repaint();
+        }
+    }
+
+    public void setWallHeight(double v) {
+        wallHeight = v;
+        if (selected instanceof Wall w && Math.abs(w.height() - v) > 1e-4) {
+            pushUndo();
+            Wall newWall = new Wall(w.start(), w.end(), w.thickness(), v);
+            plan.replaceWall(w, newWall);
+            setSelected(newWall);
+            repaint();
+        }
+    }
+
+    public void setSelectionListener(Consumer<Object> l) { selectionListener = l; }
+
+    public void setSelected(Object obj) {
+        selected = obj;
+        if (selectionListener != null) selectionListener.accept(selected);
+        repaint();
+    }
     public void setStatusListener(Consumer<String> l) { statusListener = l; }
     public void setToolListener(Consumer<Tool> l) { toolListener = l; }
 
@@ -243,10 +274,36 @@ public class PlanEditor extends JPanel {
         }
     }
 
-    /** 선택된 가구의 크기(mm)를 입력창으로 바꾼다. */
+    /** 선택된 벽이나 가구의 크기/길이(mm)를 입력창으로 바꾼다. */
     public void resizeSelected() {
+        if (selected instanceof Wall w) {
+            JSpinner lenSpin = new JSpinner(new SpinnerNumberModel((int) Math.round(w.length()), 50, 50000, 100));
+            JSpinner thickSpin = new JSpinner(new SpinnerNumberModel((int) Math.round(w.thickness()), 50, 1000, 10));
+            JSpinner hSpin = new JSpinner(new SpinnerNumberModel((int) Math.round(w.height()), 500, 5000, 100));
+            JPanel panel = new JPanel(new GridLayout(0, 2, 6, 6));
+            panel.add(new JLabel("벽 길이 (mm)")); panel.add(lenSpin);
+            panel.add(new JLabel("벽 두께 (mm)")); panel.add(thickSpin);
+            panel.add(new JLabel("벽 높이 (mm)")); panel.add(hSpin);
+            int ok = JOptionPane.showConfirmDialog(this, panel, "벽 치수 수정",
+                    JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+            if (ok != JOptionPane.OK_OPTION) return;
+            pushUndo();
+            double newLen = ((Number) lenSpin.getValue()).doubleValue();
+            double newThick = ((Number) thickSpin.getValue()).doubleValue();
+            double newH = ((Number) hSpin.getValue()).doubleValue();
+            double angle = w.angle();
+            Point2D newEnd = new Point2D(w.start().x() + Math.cos(angle) * newLen,
+                                         w.start().y() + Math.sin(angle) * newLen);
+            Wall newWall = new Wall(w.start(), newEnd, newThick, newH);
+            plan.replaceWall(w, newWall);
+            this.wallThickness = newThick;
+            this.wallHeight = newH;
+            setSelected(newWall);
+            repaint();
+            return;
+        }
         if (!(selected instanceof Furniture f)) {
-            JOptionPane.showMessageDialog(this, "'선택' 도구로 크기를 바꿀 가구를 먼저 클릭하세요.");
+            JOptionPane.showMessageDialog(this, "'선택' 도구로 크기/길이를 바꿀 벽이나 가구를 먼저 클릭하세요.");
             return;
         }
         JSpinner w = new JSpinner(new SpinnerNumberModel((int) f.getWidth(), 100, 6000, 50));
@@ -516,7 +573,24 @@ public class PlanEditor extends JPanel {
                     case WALL -> commitPoint(resolvePoint(e.getX(), e.getY()));
                     case SELECT -> {
                         Point2D w = screenToWorld(e.getX(), e.getY());
-                        selected = pick(w);
+                        // 이미 선택된 벽의 끝점 핸들을 클릭했는지 먼저 확인
+                        if (selected instanceof Wall selWall) {
+                            double tol = 12.0 / scale;
+                            if (w.distanceTo(selWall.start()) <= tol) {
+                                draggingWall = selWall;
+                                dragWallHandle = 0;
+                                dragSnapshot = PlanIO.toText(plan);
+                                dragMoved = false;
+                                return;
+                            } else if (w.distanceTo(selWall.end()) <= tol) {
+                                draggingWall = selWall;
+                                dragWallHandle = 1;
+                                dragSnapshot = PlanIO.toText(plan);
+                                dragMoved = false;
+                                return;
+                            }
+                        }
+                        setSelected(pick(w));
                         if (selected instanceof Furniture f) {   // 가구는 잡고 끌 수 있다
                             dragging = f;
                             dragOffset = new Point2D(f.getX() - w.x(), f.getY() - w.y());
@@ -546,6 +620,8 @@ public class PlanEditor extends JPanel {
 
             @Override public void mouseReleased(MouseEvent e) {
                 dragging = null;
+                draggingWall = null;
+                dragWallHandle = -1;
                 if (panning) {
                     panning = false;
                     setCursor(Cursor.getDefaultCursor());
@@ -559,6 +635,21 @@ public class PlanEditor extends JPanel {
                     lastMouseX = e.getX();
                     lastMouseY = e.getY();
                     repaint();
+                } else if (draggingWall != null) {
+                    Point2D p = resolvePoint(e.getX(), e.getY());
+                    Point2D newStart = (dragWallHandle == 0) ? p : draggingWall.start();
+                    Point2D newEnd = (dragWallHandle == 1) ? p : draggingWall.end();
+                    if (newStart.distanceTo(newEnd) >= 10) {
+                        if (!dragMoved) {
+                            undoStack.push(dragSnapshot);
+                            dragMoved = true;
+                        }
+                        Wall updated = new Wall(newStart, newEnd, draggingWall.thickness(), draggingWall.height());
+                        plan.replaceWall(draggingWall, updated);
+                        draggingWall = updated;
+                        setSelected(updated);
+                        repaint();
+                    }
                 } else if (dragging != null) {
                     Point2D w = screenToWorld(e.getX(), e.getY());
                     double nx = w.x() + dragOffset.x(), ny = w.y() + dragOffset.y();
@@ -749,6 +840,29 @@ public class PlanEditor extends JPanel {
             g.setStroke(new BasicStroke(px, BasicStroke.CAP_SQUARE, BasicStroke.JOIN_MITER));
             g.setColor(w == selected ? SELECT_COLOR : WALL_COLOR);
             g.draw(new Line2D.Double(sx(w.start().x()), sy(w.start().y()), sx(w.end().x()), sy(w.end().y())));
+        }
+        if (selected instanceof Wall w) {
+            // 선택된 벽의 양 끝점에 길이 조절 핸들(원) 표시
+            double r = 6;
+            g.setColor(SELECT_COLOR);
+            g.fill(new Ellipse2D.Double(sx(w.start().x()) - r, sy(w.start().y()) - r, r * 2, r * 2));
+            g.fill(new Ellipse2D.Double(sx(w.end().x()) - r, sy(w.end().y()) - r, r * 2, r * 2));
+            g.setColor(Color.WHITE);
+            g.setStroke(new BasicStroke(1.5f));
+            g.draw(new Ellipse2D.Double(sx(w.start().x()) - r, sy(w.start().y()) - r, r * 2, r * 2));
+            g.draw(new Ellipse2D.Double(sx(w.end().x()) - r, sy(w.end().y()) - r, r * 2, r * 2));
+
+            // 벽 중앙에 길이 치수 텍스트 표시
+            Point2D mid = w.pointAt(w.length() / 2.0);
+            String dim = String.format("%,d mm (두께 %,d mm)", Math.round(w.length()), Math.round(w.thickness()));
+            FontMetrics fm = g.getFontMetrics();
+            int tw = fm.stringWidth(dim);
+            g.setColor(new Color(255, 255, 255, 230));
+            g.fillRect((int) sx(mid.x()) - tw / 2 - 4, (int) sy(mid.y()) - fm.getAscent() - 2, tw + 8, fm.getHeight() + 4);
+            g.setColor(new Color(20, 20, 25));
+            g.drawRect((int) sx(mid.x()) - tw / 2 - 4, (int) sy(mid.y()) - fm.getAscent() - 2, tw + 8, fm.getHeight() + 4);
+            g.setColor(SELECT_COLOR);
+            g.drawString(dim, (float) (sx(mid.x()) - tw / 2.0), (float) sy(mid.y()));
         }
     }
 
