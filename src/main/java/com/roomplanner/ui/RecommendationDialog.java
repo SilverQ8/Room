@@ -57,7 +57,8 @@ public class RecommendationDialog extends JDialog {
         this.shoppingService = shoppingService;
         this.onPlaceFurniture = onPlaceFurniture;
 
-        setSize(960, 720);
+        setSize(1020, 720);
+        setMinimumSize(new Dimension(880, 500));
         setLocationRelativeTo(parent);
         setLayout(new BorderLayout());
         getContentPane().setBackground(BG_DARK);
