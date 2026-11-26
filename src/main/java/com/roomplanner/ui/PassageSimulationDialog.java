@@ -41,6 +41,9 @@ public class PassageSimulationDialog extends JDialog {
     private Orientation currentOrientation = Orientation.NORMAL;
 
     private final SimulationCanvas canvas = new SimulationCanvas();
+    private final PassageSimulation3DViewer viewer3D = new PassageSimulation3DViewer();
+    private final JTabbedPane viewTabs = new JTabbedPane();
+
     private final JSlider progressSlider = new JSlider(0, 100, 0);
     private final JButton playBtn = createStyledButton("재생 ▶", ACCENT_BLUE, Color.BLACK, 12, true);
     private final JButton resetBtn = createStyledButton("처음부터 ↺", new Color(0x38, 0x42, 0x50), TEXT_LIGHT, 12, false);
@@ -56,16 +59,24 @@ public class PassageSimulationDialog extends JDialog {
         this.door = door;
         this.engine = new PassageSimulationEngine(plan, furniture, door);
 
-        setSize(1000, 750);
-        setMinimumSize(new Dimension(850, 600));
+        setSize(1040, 780);
+        setMinimumSize(new Dimension(880, 640));
         setLocationRelativeTo(parent);
         setLayout(new BorderLayout());
         getContentPane().setBackground(BG_DARK);
 
+        viewer3D.setup(plan, door);
         recomputeSteps();
 
         add(buildHeaderPanel(), BorderLayout.NORTH);
-        add(canvas, BorderLayout.CENTER);
+
+        viewTabs.setFont(new Font("Malgun Gothic", Font.BOLD, 12));
+        viewTabs.setBackground(PANEL_BG);
+        viewTabs.setForeground(TEXT_LIGHT);
+        viewTabs.addTab("📐 2D 평면 시뮬레이션", canvas);
+        viewTabs.addTab("🧊 3D 입체 시뮬레이션", viewer3D);
+        add(viewTabs, BorderLayout.CENTER);
+
         add(buildBottomControlBar(), BorderLayout.SOUTH);
 
         setupTimer();
@@ -83,7 +94,7 @@ public class PassageSimulationDialog extends JDialog {
         if (currentStepIndex >= steps.size()) {
             currentStepIndex = 0;
         }
-        updateStatus();
+        updateStepDisplay();
     }
 
     private JPanel buildHeaderPanel() {
@@ -137,7 +148,6 @@ public class PassageSimulationDialog extends JDialog {
             rb.addActionListener(e -> {
                 currentOrientation = orient;
                 recomputeSteps();
-                canvas.repaint();
             });
             group.add(rb);
             row2.add(rb);
@@ -162,8 +172,7 @@ public class PassageSimulationDialog extends JDialog {
         progressSlider.addChangeListener(e -> {
             if (!isPlaying && !steps.isEmpty()) {
                 currentStepIndex = (int) (progressSlider.getValue() / 100.0 * (steps.size() - 1));
-                updateStatus();
-                canvas.repaint();
+                updateStepDisplay();
             }
         });
         bar.add(progressSlider, BorderLayout.NORTH);
@@ -207,8 +216,7 @@ public class PassageSimulationDialog extends JDialog {
             if (currentStepIndex < steps.size() - 1) {
                 currentStepIndex++;
                 progressSlider.setValue((int) ((double) currentStepIndex / (steps.size() - 1) * 100));
-                updateStatus();
-                canvas.repaint();
+                updateStepDisplay();
             } else {
                 stopAnimation();
             }
@@ -228,14 +236,14 @@ public class PassageSimulationDialog extends JDialog {
 
     private void startAnimation() {
         isPlaying = true;
-        playBtn.setText("⏸ 일시정지");
+        playBtn.setText("일시정지 ⏸");
         playBtn.setBackground(new Color(0xf0, 0x88, 0x3e));
         animationTimer.start();
     }
 
     private void stopAnimation() {
         isPlaying = false;
-        playBtn.setText("▶ 재생");
+        playBtn.setText("재생 ▶");
         playBtn.setBackground(ACCENT_BLUE);
         if (animationTimer != null) {
             animationTimer.stop();
@@ -246,8 +254,16 @@ public class PassageSimulationDialog extends JDialog {
         stopAnimation();
         currentStepIndex = 0;
         progressSlider.setValue(0);
+        updateStepDisplay();
+    }
+
+    private void updateStepDisplay() {
         updateStatus();
         canvas.repaint();
+        if (!steps.isEmpty()) {
+            viewer3D.updateStep(steps.get(Math.min(currentStepIndex, steps.size() - 1)),
+                    engine.getEffectiveDimensions(currentOrientation));
+        }
     }
 
     private void updateStatus() {
