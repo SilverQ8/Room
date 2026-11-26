@@ -40,69 +40,67 @@ public class ProductDimensionParser {
         product.setMatchedType(targetType);
         String title = product.getCleanTitle();
 
-        double w = -1, d = -1, h = -1;
+        double w = product.getWidthMm();
+        double d = product.getDepthMm();
+        double h = product.getHeightMm();
 
-        // 1. 3D 패턴 검사
-        Matcher m3 = PATTERN_3D.matcher(title);
-        if (m3.find()) {
-            w = normalizeToMm(Double.parseDouble(m3.group(1)));
-            d = normalizeToMm(Double.parseDouble(m3.group(2)));
-            h = normalizeToMm(Double.parseDouble(m3.group(3)));
-        } else {
-            // 2. 2D 패턴 검사
-            Matcher m2 = PATTERN_2D.matcher(title);
-            if (m2.find()) {
-                w = normalizeToMm(Double.parseDouble(m2.group(1)));
-                d = normalizeToMm(Double.parseDouble(m2.group(2)));
+        // 아직 치수가 파싱되지 않은 경우 제목에서 정규식으로 추출
+        if (w <= 0 || d <= 0) {
+            // 1. 3D 패턴 검사
+            Matcher m3 = PATTERN_3D.matcher(title);
+            if (m3.find()) {
+                w = normalizeToMm(Double.parseDouble(m3.group(1)));
+                d = normalizeToMm(Double.parseDouble(m3.group(2)));
+                h = normalizeToMm(Double.parseDouble(m3.group(3)));
             } else {
-                // 3. 침대 표준 규격 키워드 검사
-                if (targetType == Furniture.Type.BED) {
-                    if (title.contains("슈퍼싱글") || title.contains("SS")) {
-                        w = 1100; d = 2000;
-                    } else if (title.contains("싱글") || title.contains(" S ") || title.endsWith(" S")) {
-                        w = 1000; d = 2000;
-                    } else if (title.contains("퀸") || title.contains(" Q ") || title.endsWith(" Q")) {
-                        w = 1500; d = 2000;
-                    } else if (title.contains("킹") || title.contains(" K ") || title.endsWith(" K")) {
-                        w = 1600; d = 2000;
+                // 2. 2D 패턴 검사
+                Matcher m2 = PATTERN_2D.matcher(title);
+                if (m2.find()) {
+                    w = normalizeToMm(Double.parseDouble(m2.group(1)));
+                    d = normalizeToMm(Double.parseDouble(m2.group(2)));
+                } else {
+                    // 3. 침대 표준 규격 키워드 검사
+                    if (targetType == Furniture.Type.BED) {
+                        if (title.contains("슈퍼싱글") || title.contains("SS")) {
+                            w = 1100; d = 2000;
+                        } else if (title.contains("싱글") || title.contains(" S ") || title.endsWith(" S")) {
+                            w = 1000; d = 2000;
+                        } else if (title.contains("퀸") || title.contains(" Q ") || title.endsWith(" Q")) {
+                            w = 1500; d = 2000;
+                        } else if (title.contains("킹") || title.contains(" K ") || title.endsWith(" K")) {
+                            w = 1600; d = 2000;
+                        }
                     }
-                }
 
-                // 4. 단일 폭(Width) 수치 검사 (예: 1200 책상)
-                if (w < 0) {
-                    Matcher ms = PATTERN_SINGLE_MM.matcher(title);
-                    if (ms.find()) {
-                        w = Double.parseDouble(ms.group(1));
-                        // 깊이가 없으면 가구 타입의 기본 비율 또는 목표 깊이를 참고
-                        d = (targetDepthMm > 0) ? targetDepthMm : targetType.depth;
+                    // 4. 단일 폭(Width) 수치 검사 (예: 1200 책상)
+                    if (w < 0) {
+                        Matcher ms = PATTERN_SINGLE_MM.matcher(title);
+                        if (ms.find()) {
+                            w = Double.parseDouble(ms.group(1));
+                            d = (targetDepthMm > 0) ? targetDepthMm : targetType.depth;
+                        }
                     }
                 }
             }
         }
 
-        // 높이가 비어있으면 가구 타입 기본 높이 적용
-        if (h <= 0) {
-            h = (targetHeightMm > 0) ? targetHeightMm : targetType.height;
-        }
-
-        // 유효한 규격이면 상품에 세팅
+        // 유효한 규격이면 상품에 세팅 (높이는 실제 명시된 경우에만 양수 유지)
         if (w > 0 && d > 0) {
             product.setWidthMm(w);
             product.setDepthMm(d);
-            product.setHeightMm(h);
+            product.setHeightMm(h > 0 ? h : -1);
 
-            // 오차 점수 (오차가 작을수록 상위 정렬)
+            // 오차 점수 (가로/세로 매칭 위주, 높이는 실제 존재할 때만 비교)
             double errW = Math.abs(w - targetWidthMm);
             double errD = Math.abs(d - targetDepthMm);
-            double errH = (targetHeightMm > 0) ? Math.abs(h - targetHeightMm) * 0.5 : 0;
+            double errH = (h > 0 && targetHeightMm > 0) ? Math.abs(h - targetHeightMm) * 0.5 : 0;
 
-            // 가구는 가로/세로 오차가 가장 중요하므로 가중치 부여
             product.setDistanceScore(errW + errD * 1.2 + errH);
         } else {
-            // 치수 파싱이 안 된 상품은 기본 타입 치수 부여하되, 페널티 점수를 주어 뒤쪽에 정렬
-            product.setWidthMm(targetWidthMm > 0 ? targetWidthMm : targetType.width);
-            product.setDepthMm(targetDepthMm > 0 ? targetDepthMm : targetType.depth);
-            product.setHeightMm(targetHeightMm > 0 ? targetHeightMm : targetType.height);
+            // 치수 파싱이 안 된 상품은 -1로 유지하여 '상세 페이지 참조'로 표시되게 함
+            product.setWidthMm(-1);
+            product.setDepthMm(-1);
+            product.setHeightMm(-1);
             product.setDistanceScore(50000.0); // 치수 미확인 페널티
         }
     }

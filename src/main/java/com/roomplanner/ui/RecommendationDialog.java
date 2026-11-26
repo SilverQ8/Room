@@ -392,8 +392,10 @@ public class RecommendationDialog extends JDialog {
         f.setHeight(h);
 
         onPlaceFurniture.accept(f);
+        String dimText = "가로 " + (int)(w/10) + "cm × 세로 " + (int)(d/10) + "cm"
+                + (p.getHeightMm() > 0 ? " × 높이 " + (int)(h/10) + "cm" : " (3D 높이는 표준 " + (int)(h/10) + "cm 적용)");
         JOptionPane.showMessageDialog(this,
-                "선택한 가구가 도면 중앙에 배치되었습니다!\n• 가구명: " + p.getCleanTitle() + "\n• 규격: 가로 " + (int)(w/10) + "cm × 세로 " + (int)(d/10) + "cm × 높이 " + (int)(h/10) + "cm\n2D 도면 및 3D 입체 탭에서 확인해 보세요.",
+                "선택한 가구가 도면 중앙에 배치되었습니다!\n• 가구명: " + p.getCleanTitle() + "\n• 규격: " + dimText + "\n2D 도면 및 3D 입체 탭에서 확인해 보세요.",
                 "도면 배치 완료", JOptionPane.INFORMATION_MESSAGE);
     }
 
