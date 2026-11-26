@@ -49,8 +49,8 @@ public class RecommendationDialog extends JDialog {
     private final JTextField heightField = new JTextField(5);
 
     private final JPanel resultsContainer = new JPanel();
-    private final JLabel statusHeaderLabel = new JLabel("가구 종류와 원하는 수치(cm)를 입력한 후 [추천 검색]을 누르세요.");
-    private final JButton searchBtn = new JButton("🔍 이케아 추천 검색");
+    private final JLabel statusHeaderLabel = new JLabel("가구 종류와 원하는 수치(cm)를 입력한 후 [이케아 추천 검색]을 누르세요.");
+    private final JButton searchBtn = createStyledButton("이케아 추천 검색", IKEA_BLUE, IKEA_YELLOW, 13, true);
 
     public RecommendationDialog(JFrame parent, IkeaShoppingService shoppingService, Consumer<Furniture> onPlaceFurniture) {
         super(parent, "이케아(IKEA) 가구 규격 추천 및 실시간 검색", true);
@@ -98,15 +98,15 @@ public class RecommendationDialog extends JDialog {
         JPanel topRow = new JPanel(new BorderLayout());
         topRow.setOpaque(false);
 
-        JLabel titleLbl = new JLabel("🛋️ 이케아(IKEA) 실시간 가구 추천 (근사치 매칭)");
-        titleLbl.setFont(titleLbl.getFont().deriveFont(Font.BOLD, 15f));
+        JLabel titleLbl = new JLabel("[IKEA] 실시간 가구 추천 및 규격 매칭");
+        titleLbl.setFont(new Font("Malgun Gothic", Font.BOLD, 15));
         titleLbl.setForeground(ACCENT_BLUE);
 
-        JLabel noKeyBadge = new JLabel(" ✔️ 별도 API 키 없이 즉시 검색 가능 ");
+        JLabel noKeyBadge = new JLabel(" 별도 API 키 없이 즉시 검색 가능 ");
         noKeyBadge.setOpaque(true);
         noKeyBadge.setBackground(new Color(0x1a, 0x40, 0x24));
         noKeyBadge.setForeground(new Color(0x7e, 0xe7, 0x87));
-        noKeyBadge.setFont(noKeyBadge.getFont().deriveFont(Font.BOLD, 11f));
+        noKeyBadge.setFont(new Font("Malgun Gothic", Font.BOLD, 11));
         noKeyBadge.setBorder(new LineBorder(new Color(0x23, 0x86, 0x36), 1, true));
 
         topRow.add(titleLbl, BorderLayout.WEST);
@@ -122,30 +122,30 @@ public class RecommendationDialog extends JDialog {
         inputsLeft.setOpaque(false);
 
         inputsLeft.add(createLabel("종류:"));
+        typeCombo.setFont(new Font("Malgun Gothic", Font.PLAIN, 12));
         inputsLeft.add(typeCombo);
 
         inputsLeft.add(createLabel("키워드:"));
+        keywordField.setFont(new Font("Malgun Gothic", Font.PLAIN, 12));
         keywordField.setColumns(8);
         keywordField.setToolTipText("예: 원목, 화이트, 코너, 게이밍");
         inputsLeft.add(keywordField);
 
         inputsLeft.add(createLabel("가로:"));
+        widthField.setFont(new Font("Malgun Gothic", Font.PLAIN, 12));
         widthField.setColumns(4);
         inputsLeft.add(widthField);
         inputsLeft.add(createLabel("cm  세로:"));
+        depthField.setFont(new Font("Malgun Gothic", Font.PLAIN, 12));
         depthField.setColumns(4);
         inputsLeft.add(depthField);
         inputsLeft.add(createLabel("cm  높이:"));
+        heightField.setFont(new Font("Malgun Gothic", Font.PLAIN, 12));
         heightField.setColumns(4);
         inputsLeft.add(heightField);
         inputsLeft.add(createLabel("cm"));
 
-        searchBtn.setPreferredSize(new Dimension(150, 32));
-        searchBtn.setBackground(IKEA_BLUE);
-        searchBtn.setForeground(IKEA_YELLOW);
-        searchBtn.setFont(searchBtn.getFont().deriveFont(Font.BOLD, 13f));
-        searchBtn.setFocusPainted(false);
-        searchBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        searchBtn.setPreferredSize(new Dimension(160, 34));
         searchBtn.addActionListener(e -> performSearch());
 
         formRow.add(inputsLeft, BorderLayout.CENTER);
@@ -160,6 +160,7 @@ public class RecommendationDialog extends JDialog {
         wrapper.setOpaque(false);
         wrapper.setBorder(new EmptyBorder(10, 16, 10, 16));
 
+        statusHeaderLabel.setFont(new Font("Malgun Gothic", Font.PLAIN, 12));
         statusHeaderLabel.setForeground(TEXT_MUTED);
         statusHeaderLabel.setBorder(new EmptyBorder(0, 0, 8, 0));
         wrapper.add(statusHeaderLabel, BorderLayout.NORTH);
@@ -185,14 +186,18 @@ public class RecommendationDialog extends JDialog {
                 new EmptyBorder(10, 16, 10, 16)
         ));
 
-        JLabel guide = new JLabel("💡 [도면에 배치]를 누르면 이케아 실측 규격으로 2D/3D 도면에 즉시 가구가 배치됩니다.");
-        guide.setFont(guide.getFont().deriveFont(Font.PLAIN, 12f));
+        JLabel guide = new JLabel("[안내] [도면에 배치]를 누르면 이케아 실측 규격으로 2D/3D 도면에 즉시 가구가 배치됩니다.");
+        guide.setFont(new Font("Malgun Gothic", Font.PLAIN, 12));
         guide.setForeground(TEXT_MUTED);
 
-        JButton closeBtn = new JButton("닫기");
+        JButton closeBtn = createStyledButton("닫기", new Color(0x38, 0x42, 0x50), TEXT_LIGHT, 12, false);
+        closeBtn.setPreferredSize(new Dimension(80, 30));
         closeBtn.addActionListener(e -> dispose());
 
         bar.add(guide, BorderLayout.WEST);
+        bar.add(closeBtn, BorderLayout.EAST);
+        return bar;
+    }
         bar.add(closeBtn, BorderLayout.EAST);
         return bar;
     }
@@ -327,26 +332,55 @@ public class RecommendationDialog extends JDialog {
 
         card.add(infoPanel, BorderLayout.CENTER);
 
-        // 3. 우측 액션 버튼들 (구매 링크 열기, 도면에 배치)
+        // 3. 우측 액션 버튼들 (도면에 배치, 구매 링크 열기)
         JPanel actionPanel = new JPanel(new GridLayout(2, 1, 0, 6));
         actionPanel.setOpaque(false);
-        actionPanel.setPreferredSize(new Dimension(135, 0));
+        actionPanel.setPreferredSize(new Dimension(140, 0));
 
-        JButton browseBtn = new JButton("🌐 이케아 몰 열기");
-        browseBtn.setFont(browseBtn.getFont().deriveFont(Font.PLAIN, 11f));
-        browseBtn.addActionListener(e -> openBrowser(p.getLink()));
-
-        JButton placeBtn = new JButton("➕ 도면에 배치");
-        placeBtn.setFont(placeBtn.getFont().deriveFont(Font.BOLD, 11f));
-        placeBtn.setBackground(new Color(0x23, 0x86, 0x36));
-        placeBtn.setForeground(Color.WHITE);
+        JButton placeBtn = createStyledButton("도면에 배치", new Color(0x23, 0x86, 0x36), Color.WHITE, 12, true);
         placeBtn.addActionListener(e -> placeOnPlan(p, type));
+
+        JButton browseBtn = createStyledButton("이케아몰 열기", new Color(0x30, 0x48, 0x60), new Color(0x79, 0xc0, 0xff), 11, false);
+        browseBtn.addActionListener(e -> openBrowser(p.getLink()));
 
         actionPanel.add(placeBtn);
         actionPanel.add(browseBtn);
         card.add(actionPanel, BorderLayout.EAST);
 
         return card;
+    }
+
+    /**
+     * LookAndFeel에 영향받지 않고 지정한 배경색과 글자색으로 선명하게 렌더링되는 둥근 모던 버튼 생성
+     */
+    private static JButton createStyledButton(String text, Color bg, Color fg, int fontSize, boolean bold) {
+        JButton btn = new JButton(text) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                if (!isEnabled()) {
+                    g2.setColor(new Color(60, 65, 75));
+                } else if (getModel().isPressed()) {
+                    g2.setColor(bg.darker());
+                } else if (getModel().isRollover()) {
+                    g2.setColor(bg.brighter());
+                } else {
+                    g2.setColor(bg);
+                }
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
+                g2.dispose();
+                super.paintComponent(g);
+            }
+        };
+        btn.setFont(new Font("Malgun Gothic", bold ? Font.BOLD : Font.PLAIN, fontSize));
+        btn.setForeground(fg);
+        btn.setContentAreaFilled(false);
+        btn.setBorderPainted(false);
+        btn.setFocusPainted(false);
+        btn.setOpaque(false);
+        btn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        return btn;
     }
 
     private void placeOnPlan(ShoppingProduct p, Furniture.Type type) {
@@ -408,7 +442,7 @@ public class RecommendationDialog extends JDialog {
     private JLabel createLabel(String text) {
         JLabel l = new JLabel(text);
         l.setForeground(TEXT_LIGHT);
-        l.setFont(l.getFont().deriveFont(Font.PLAIN, 12f));
+        l.setFont(new Font("Malgun Gothic", Font.PLAIN, 12));
         return l;
     }
 
