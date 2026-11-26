@@ -42,8 +42,8 @@ public class PassageSimulationDialog extends JDialog {
 
     private final SimulationCanvas canvas = new SimulationCanvas();
     private final JSlider progressSlider = new JSlider(0, 100, 0);
-    private final JButton playBtn = createStyledButton("▶ 재생", ACCENT_BLUE, Color.BLACK, 12, true);
-    private final JButton resetBtn = createStyledButton("↺ 처음부터", new Color(0x38, 0x42, 0x50), TEXT_LIGHT, 12, false);
+    private final JButton playBtn = createStyledButton("재생 ▶", ACCENT_BLUE, Color.BLACK, 12, true);
+    private final JButton resetBtn = createStyledButton("처음부터 ↺", new Color(0x38, 0x42, 0x50), TEXT_LIGHT, 12, false);
     private final JLabel statusLabel = new JLabel("시뮬레이션 준비 완료");
 
     private Timer animationTimer;
@@ -99,7 +99,7 @@ public class PassageSimulationDialog extends JDialog {
         JPanel row1 = new JPanel(new BorderLayout());
         row1.setOpaque(false);
 
-        JLabel titleLbl = new JLabel("🚪 가구 반입(문 통과) 이동 시뮬레이션");
+        JLabel titleLbl = new JLabel("[문 통과] 가구 반입 이동 시뮬레이션");
         titleLbl.setFont(new Font("Malgun Gothic", Font.BOLD, 15));
         titleLbl.setForeground(ACCENT_BLUE);
 

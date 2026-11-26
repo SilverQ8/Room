@@ -91,12 +91,13 @@ public class PassageSimulationEngine {
             normY = -normY;
         }
 
-        // 문 밖 진입 출발 지점 (문 중심에서 법선 반대 방향으로 1800mm)
-        double approachDist = Math.max(1600, Math.max(effW, effD) * 1.5);
-        Point2D startPos = new Point2D(pDoorCenter.x() - normX * approachDist, pDoorCenter.y() - normY * approachDist);
+        // 진행 방향 치수 (가구 길이의 절반) 계산
+        double travelLength = Math.max(effW, effD);
+        // 가구 앞머리가 문틀 200mm 앞에서 시작하여, 가구 꼬리가 문틀을 200mm 빠져나온 위치까지만 이동 (벽만 통과)
+        double travelDist = travelLength / 2.0 + 250.0;
 
-        // 문 안 도착 지점 (방 안쪽으로 1800mm 일직선 관통 진입)
-        Point2D insidePos = new Point2D(pDoorCenter.x() + normX * approachDist, pDoorCenter.y() + normY * approachDist);
+        Point2D startPos = new Point2D(pDoorCenter.x() - normX * travelDist, pDoorCenter.y() - normY * travelDist);
+        Point2D insidePos = new Point2D(pDoorCenter.x() + normX * travelDist, pDoorCenter.y() + normY * travelDist);
 
         // 문을 통과할 때의 최적 정렬 각도 (가구의 좁은 치수가 문틀 폭과 나란하도록 정렬)
         double normAngleDeg = Math.toDegrees(Math.atan2(normY, normX));
@@ -109,17 +110,17 @@ public class PassageSimulationEngine {
             passAngleDeg = normAngleDeg;
         }
 
-        // 벽 기둥 사각형들 (좌측 벽, 우측 벽)
+        // 문이 뚫려있는 해당 벽의 좌/우 문틀 기둥 벽 조각만 장애물로 설정 (방 안쪽 다른 벽과 무관)
         List<List<Point2D>> wallPolys = buildWallObstacles();
 
-        // 2. 전체 프레임 보간 (문 통과 시뮬레이션에서는 불필요한 자체 회전 없이 반듯하게 일직선으로 통과)
+        // 2. 전체 프레임 보간 (문 통과 시뮬레이션: 문틀을 정확히 빠져나오는 구간만 직선 이동)
         boolean hasCollidedEver = false;
         for (int i = 0; i <= totalSteps; i++) {
             double t = (double) i / totalSteps;
 
-            // 문 밖 -> 문틀 통과 -> 방 안 안전지대로 반듯하게 일직선 이동
+            // 문 밖 -> 문틀 통과 -> 문 안쪽으로 벽만 쏙 통과
             Point2D currentPos = lerp(startPos, insidePos, t);
-            double currentRot = passAngleDeg; // 문 통과 자세 일정하게 유지 (불필요한 회전 방지)
+            double currentRot = passAngleDeg; // 문 통과 자세 일정하게 유지
 
             // 가구 폴리곤 계산
             List<Point2D> corners = computeCorners(currentPos, effW, effD, currentRot);
@@ -130,17 +131,17 @@ public class PassageSimulationEngine {
 
             // 충돌 검사
             boolean collided = false;
-            String msg = "🟢 정상 진입 중";
+            String msg = "[진행] 문 통과 중...";
 
             // 높이 검사 (가구 운반 높이가 문 높이 2100mm를 초과하는지)
             if (effH > door.height()) {
                 collided = true;
-                msg = String.format("🔴 문 높이 초과 (가구 높이 %.0fcm > 문 높이 %.0fcm)", effH / 10, door.height() / 10);
+                msg = String.format("[충돌] 문 높이 초과 (가구 높이 %.0fcm > 문 높이 %.0fcm)", effH / 10, door.height() / 10);
             } else {
                 for (List<Point2D> wallPoly : wallPolys) {
                     if (Geometry.overlap(corners, wallPoly)) {
                         collided = true;
-                        msg = "🔴 문틀/벽 충돌 발생! (통과 불가)";
+                        msg = "[충돌] 문틀에 걸림! (가구 폭이 문보다 큼)";
                         break;
                     }
                 }
@@ -149,15 +150,15 @@ public class PassageSimulationEngine {
             if (collided) hasCollidedEver = true;
 
             if (!collided) {
-                if (t >= 0.45 && t <= 0.55) {
+                if (t >= 0.40 && t <= 0.60) {
                     double minClearance = Math.min(leftClearance, rightClearance);
                     if (minClearance < 30) {
-                        msg = String.format("🟡 주의! 문틀 여유 부족 (여유 %.1fcm)", minClearance / 10.0);
+                        msg = String.format("[주의] 문틀 여유 부족 (여유 %.1fcm)", minClearance / 10.0);
                     } else {
-                        msg = String.format("🟢 문틀 안전 통과 (여유 %.1fcm)", minClearance / 10.0);
+                        msg = String.format("[안전] 문틀 안전 통과 (여유 %.1fcm)", minClearance / 10.0);
                     }
-                } else if (t >= 0.98) {
-                    msg = "🎉 반입 완료! 목표 위치에 안전하게 안착했습니다.";
+                } else if (t >= 0.95) {
+                    msg = "[성공] 문 통과 완료! 문을 안전하게 통과했습니다.";
                 }
             }
 
@@ -167,7 +168,7 @@ public class PassageSimulationEngine {
         return steps;
     }
 
-    /** 벽을 문 좌측/우측 조각으로 분할하여 충돌 장애물 폴리곤 생성 */
+    /** 문이 위치한 벽의 좌측/우측 기둥 조각만 충돌 장애물 폴리곤으로 생성 */
     private List<List<Point2D>> buildWallObstacles() {
         List<List<Point2D>> polys = new ArrayList<>();
         double thickness = wall.thickness();
@@ -184,13 +185,6 @@ public class PassageSimulationEngine {
             Point2D p2 = wall.pointAt(door.endOffset());
             Point2D p3 = wall.pointAt(wall.length());
             polys.add(Geometry.thickLine(p2, p3, thickness));
-        }
-
-        // 3. 도면의 다른 벽들도 충돌체로 추가
-        for (Wall other : plan.getWalls()) {
-            if (other != wall) {
-                polys.add(Geometry.thickLine(other.start(), other.end(), other.thickness()));
-            }
         }
 
         return polys;
