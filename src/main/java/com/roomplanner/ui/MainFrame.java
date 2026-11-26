@@ -154,9 +154,9 @@ public class MainFrame extends JFrame {
         addButton(bar, "불러오기", this::load);
 
         bar.addSeparator();
-        JButton recBtn = new JButton("🔍 이케아 가구 쇼핑 추천");
+        JButton recBtn = new JButton("[IKEA] 가구 추천 검색");
         recBtn.setFocusable(false);
-        recBtn.setFont(recBtn.getFont().deriveFont(Font.BOLD, 12f));
+        recBtn.setFont(new Font("Malgun Gothic", Font.BOLD, 12));
         recBtn.setForeground(new Color(0x58, 0xa6, 0xff));
         recBtn.addActionListener(e -> openRecommendationDialog());
         bar.add(recBtn);

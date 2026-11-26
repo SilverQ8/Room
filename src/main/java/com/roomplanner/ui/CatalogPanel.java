@@ -76,7 +76,8 @@ public class CatalogPanel extends JPanel {
     }
 
     public void setOnRecommendAction(Runnable onRecommendAction) {
-        JButton recBtn = new JButton("🔍 이케아 실시간 맞춤 추천");
+        JButton recBtn = new JButton("[IKEA] 실시간 가구 추천");
+        recBtn.setFont(new Font("Malgun Gothic", Font.BOLD, 12));
         recBtn.setFocusable(false);
         recBtn.setBackground(CARD);
         recBtn.setForeground(ACCENT);
