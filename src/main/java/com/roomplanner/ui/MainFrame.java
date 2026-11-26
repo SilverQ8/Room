@@ -4,7 +4,7 @@ import com.roomplanner.model.Furniture;
 import com.roomplanner.model.Plan;
 import com.roomplanner.model.PlanIO;
 import com.roomplanner.model.SamplePlan;
-import com.roomplanner.service.NaverShoppingService;
+import com.roomplanner.service.IkeaShoppingService;
 
 import javax.swing.*;
 import javax.swing.filechooser.FileNameExtensionFilter;
@@ -24,7 +24,7 @@ public class MainFrame extends JFrame {
     private final CatalogPanel catalog = new CatalogPanel(this::onCatalogPick);
     private final JLabel statusLabel = new JLabel(" ");
     private final Map<PlanEditor.Tool, JToggleButton> toolButtons = new EnumMap<>(PlanEditor.Tool.class);
-    private final NaverShoppingService shoppingService = new NaverShoppingService();
+    private final IkeaShoppingService shoppingService = new IkeaShoppingService();
     private JSpinner thicknessSpinner;
     private JSpinner heightSpinner;
     private boolean syncingSpinners;
@@ -154,7 +154,7 @@ public class MainFrame extends JFrame {
         addButton(bar, "불러오기", this::load);
 
         bar.addSeparator();
-        JButton recBtn = new JButton("🔍 가구 쇼핑 추천");
+        JButton recBtn = new JButton("🔍 이케아 가구 쇼핑 추천");
         recBtn.setFocusable(false);
         recBtn.setFont(recBtn.getFont().deriveFont(Font.BOLD, 12f));
         recBtn.setForeground(new Color(0x58, 0xa6, 0xff));

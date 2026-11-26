@@ -76,7 +76,7 @@ public class CatalogPanel extends JPanel {
     }
 
     public void setOnRecommendAction(Runnable onRecommendAction) {
-        JButton recBtn = new JButton("🔍 네이버 쇼핑 맞춤 추천");
+        JButton recBtn = new JButton("🔍 이케아 실시간 맞춤 추천");
         recBtn.setFocusable(false);
         recBtn.setBackground(CARD);
         recBtn.setForeground(ACCENT);

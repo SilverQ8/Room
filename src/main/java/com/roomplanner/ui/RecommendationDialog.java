@@ -2,7 +2,7 @@ package com.roomplanner.ui;
 
 import com.roomplanner.model.Furniture;
 import com.roomplanner.model.ShoppingProduct;
-import com.roomplanner.service.NaverShoppingService;
+import com.roomplanner.service.IkeaShoppingService;
 
 import javax.imageio.ImageIO;
 import javax.swing.*;
@@ -22,7 +22,8 @@ import java.util.Locale;
 import java.util.function.Consumer;
 
 /**
- * 네이버 쇼핑 API 연동 가구 검색 및 근사치 추천 다이얼로그.
+ * 이케아(IKEA) 실시간 검색 연동 가구 추천 및 근사치 수치 매칭 다이얼로그.
+ * 별도 API 키 발급 없이 즉시 사용 가능하다.
  */
 public class RecommendationDialog extends JDialog {
 
@@ -32,11 +33,13 @@ public class RecommendationDialog extends JDialog {
     private static final Color CARD_HOVER = new Color(0x38, 0x42, 0x50);
     private static final Color BORDER_COLOR = new Color(0x48, 0x4f, 0x58);
     private static final Color ACCENT_BLUE = new Color(0x58, 0xa6, 0xff);
+    private static final Color IKEA_YELLOW = new Color(0xff, 0xda, 0x1a);
+    private static final Color IKEA_BLUE = new Color(0x00, 0x58, 0xa3);
     private static final Color TEXT_LIGHT = new Color(0xe6, 0xed, 0xf3);
     private static final Color TEXT_MUTED = new Color(0x8b, 0x94, 0x9e);
     private static final Color BADGE_BG = new Color(0x1f, 0x35, 0x4d);
 
-    private final NaverShoppingService shoppingService;
+    private final IkeaShoppingService shoppingService;
     private final Consumer<Furniture> onPlaceFurniture;
 
     private final JComboBox<Furniture.Type> typeCombo = new JComboBox<>(Furniture.Type.values());
@@ -46,15 +49,15 @@ public class RecommendationDialog extends JDialog {
     private final JTextField heightField = new JTextField(5);
 
     private final JPanel resultsContainer = new JPanel();
-    private final JLabel statusHeaderLabel = new JLabel("가구 종류와 원하는 수치(cm)를 입력한 후 [검색]을 누르세요.");
-    private final JButton searchBtn = new JButton("🔍 추천 검색");
+    private final JLabel statusHeaderLabel = new JLabel("가구 종류와 원하는 수치(cm)를 입력한 후 [추천 검색]을 누르세요.");
+    private final JButton searchBtn = new JButton("🔍 이케아 추천 검색");
 
-    public RecommendationDialog(JFrame parent, NaverShoppingService shoppingService, Consumer<Furniture> onPlaceFurniture) {
-        super(parent, "네이버 쇼핑 가구 규격 추천 및 검색", true);
+    public RecommendationDialog(JFrame parent, IkeaShoppingService shoppingService, Consumer<Furniture> onPlaceFurniture) {
+        super(parent, "이케아(IKEA) 가구 규격 추천 및 실시간 검색", true);
         this.shoppingService = shoppingService;
         this.onPlaceFurniture = onPlaceFurniture;
 
-        setSize(880, 680);
+        setSize(900, 700);
         setLocationRelativeTo(parent);
         setLayout(new BorderLayout());
         getContentPane().setBackground(BG_DARK);
@@ -63,7 +66,7 @@ public class RecommendationDialog extends JDialog {
         add(buildResultsPanel(), BorderLayout.CENTER);
         add(buildBottomBar(), BorderLayout.SOUTH);
 
-        // 초기 수치 세팅 (콤보박스 선택된 가구 기본값)
+        // 초기 수치 세팅
         updateDefaultDimensions((Furniture.Type) typeCombo.getSelectedItem());
         typeCombo.addActionListener(e -> updateDefaultDimensions((Furniture.Type) typeCombo.getSelectedItem()));
     }
@@ -84,20 +87,23 @@ public class RecommendationDialog extends JDialog {
                 new EmptyBorder(14, 16, 14, 16)
         ));
 
-        // 1행: 제목 및 API 키 설정 버튼
+        // 1행: 제목 및 인증 불필요 안내 뱃지
         JPanel topRow = new JPanel(new BorderLayout());
         topRow.setOpaque(false);
 
-        JLabel titleLbl = new JLabel("🛒 네이버 쇼핑 실시간 가구 추천 (근사치 매칭)");
+        JLabel titleLbl = new JLabel("🛋️ 이케아(IKEA) 실시간 가구 추천 (근사치 매칭)");
         titleLbl.setFont(titleLbl.getFont().deriveFont(Font.BOLD, 15f));
         titleLbl.setForeground(ACCENT_BLUE);
 
-        JButton apiConfigBtn = new JButton(shoppingService.hasApiCredentials() ? "⚙️ 네이버 API 설정됨" : "⚠️ 네이버 API 키 등록");
-        apiConfigBtn.setFocusable(false);
-        apiConfigBtn.addActionListener(e -> showApiConfigDialog());
+        JLabel noKeyBadge = new JLabel(" ✔️ 별도 API 키 없이 즉시 검색 가능 ");
+        noKeyBadge.setOpaque(true);
+        noKeyBadge.setBackground(new Color(0x1a, 0x40, 0x24));
+        noKeyBadge.setForeground(new Color(0x7e, 0xe7, 0x87));
+        noKeyBadge.setFont(noKeyBadge.getFont().deriveFont(Font.BOLD, 11f));
+        noKeyBadge.setBorder(new LineBorder(new Color(0x23, 0x86, 0x36), 1, true));
 
         topRow.add(titleLbl, BorderLayout.WEST);
-        topRow.add(apiConfigBtn, BorderLayout.EAST);
+        topRow.add(noKeyBadge, BorderLayout.EAST);
         header.add(topRow);
         header.add(Box.createVerticalStrut(12));
 
@@ -109,7 +115,7 @@ public class RecommendationDialog extends JDialog {
         formRow.add(typeCombo);
 
         formRow.add(createLabel("추가 키워드:"));
-        keywordField.setToolTipText("예: 원목, 화이트, 컴퓨터, 3인용");
+        keywordField.setToolTipText("예: 원목, 화이트, 코너, 게이밍");
         formRow.add(keywordField);
 
         formRow.add(createLabel("가로:"));
@@ -120,8 +126,8 @@ public class RecommendationDialog extends JDialog {
         formRow.add(heightField);
         formRow.add(createLabel("cm"));
 
-        searchBtn.setBackground(ACCENT_BLUE);
-        searchBtn.setForeground(Color.WHITE);
+        searchBtn.setBackground(IKEA_BLUE);
+        searchBtn.setForeground(IKEA_YELLOW);
         searchBtn.setFont(searchBtn.getFont().deriveFont(Font.BOLD, 12f));
         searchBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         searchBtn.addActionListener(e -> performSearch());
@@ -162,7 +168,7 @@ public class RecommendationDialog extends JDialog {
                 new EmptyBorder(10, 16, 10, 16)
         ));
 
-        JLabel guide = new JLabel("💡 [도면에 배치]를 누르면 해당 상품의 실측 규격으로 2D/3D 도면에 즉시 가구가 생성됩니다.");
+        JLabel guide = new JLabel("💡 [도면에 배치]를 누르면 이케아 실측 규격으로 2D/3D 도면에 즉시 가구가 배치됩니다.");
         guide.setFont(guide.getFont().deriveFont(Font.PLAIN, 12f));
         guide.setForeground(TEXT_MUTED);
 
@@ -183,7 +189,7 @@ public class RecommendationDialog extends JDialog {
         double targetH = parseDouble(heightField.getText(), type.height / 10.0) * 10.0;
 
         searchBtn.setEnabled(false);
-        statusHeaderLabel.setText("네이버 쇼핑에서 최적의 가구를 검색하고 규격을 분석하는 중입니다...");
+        statusHeaderLabel.setText("이케아(IKEA)에서 실시간으로 상품을 조회하고 규격을 비교하는 중입니다...");
         resultsContainer.removeAll();
         resultsContainer.revalidate();
         resultsContainer.repaint();
@@ -221,9 +227,8 @@ public class RecommendationDialog extends JDialog {
             return;
         }
 
-        String modeText = shoppingService.hasApiCredentials() ? "실시간 네이버 쇼핑" : "체험용 샘플 데이터";
-        statusHeaderLabel.setText(String.format("총 %d개의 상품을 찾았습니다 (%s, 목표 가로 %.0fcm × 세로 %.0fcm 근사치 순)",
-                products.size(), modeText, targetW / 10.0, targetD / 10.0));
+        statusHeaderLabel.setText(String.format("총 %d개의 이케아 가구를 찾았습니다 (목표 가로 %.0fcm × 세로 %.0fcm 근사치 순 정렬)",
+                products.size(), targetW / 10.0, targetD / 10.0));
 
         NumberFormat nf = NumberFormat.getInstance(Locale.KOREA);
 
@@ -245,9 +250,8 @@ public class RecommendationDialog extends JDialog {
                 new EmptyBorder(10, 12, 10, 12)
         ));
         card.setMaximumSize(new Dimension(Integer.MAX_VALUE, 95));
-        card.setPreferredSize(new Dimension(800, 95));
+        card.setPreferredSize(new Dimension(820, 95));
 
-        // 마우스 호버 효과
         card.addMouseListener(new MouseAdapter() {
             @Override public void mouseEntered(MouseEvent e) { card.setBackground(CARD_HOVER); }
             @Override public void mouseExited(MouseEvent e) { card.setBackground(CARD_BG); }
@@ -259,7 +263,7 @@ public class RecommendationDialog extends JDialog {
         imgLabel.setHorizontalAlignment(SwingConstants.CENTER);
         imgLabel.setBackground(PANEL_BG);
         imgLabel.setOpaque(true);
-        imgLabel.setText("이미지");
+        imgLabel.setText("IKEA");
         imgLabel.setForeground(TEXT_MUTED);
 
         if (p.getImageUrl() != null && !p.getImageUrl().isEmpty()) {
@@ -284,12 +288,12 @@ public class RecommendationDialog extends JDialog {
         priceLbl.setFont(priceLbl.getFont().deriveFont(Font.BOLD, 13f));
         priceLbl.setForeground(new Color(0xff, 0x7b, 0x72));
 
-        JLabel mallLbl = new JLabel("[" + (!p.getMallName().isEmpty() ? p.getMallName() : "네이버쇼핑") + "]");
-        mallLbl.setForeground(TEXT_MUTED);
-        mallLbl.setFont(mallLbl.getFont().deriveFont(Font.PLAIN, 11f));
+        JLabel brandLbl = new JLabel("[IKEA 공식]");
+        brandLbl.setForeground(new Color(0x7e, 0xe7, 0x87));
+        brandLbl.setFont(brandLbl.getFont().deriveFont(Font.BOLD, 11f));
 
         subInfoRow.add(priceLbl);
-        subInfoRow.add(mallLbl);
+        subInfoRow.add(brandLbl);
 
         // 규격 및 오차 배지
         JLabel dimBadge = new JLabel(" " + p.getDimensionString() + " ");
@@ -309,9 +313,9 @@ public class RecommendationDialog extends JDialog {
         // 3. 우측 액션 버튼들 (구매 링크 열기, 도면에 배치)
         JPanel actionPanel = new JPanel(new GridLayout(2, 1, 0, 6));
         actionPanel.setOpaque(false);
-        actionPanel.setPreferredSize(new Dimension(130, 0));
+        actionPanel.setPreferredSize(new Dimension(135, 0));
 
-        JButton browseBtn = new JButton("🌐 상품 보기");
+        JButton browseBtn = new JButton("🌐 이케아 몰 열기");
         browseBtn.setFont(browseBtn.getFont().deriveFont(Font.PLAIN, 11f));
         browseBtn.addActionListener(e -> openBrowser(p.getLink()));
 
@@ -329,7 +333,6 @@ public class RecommendationDialog extends JDialog {
     }
 
     private void placeOnPlan(ShoppingProduct p, Furniture.Type type) {
-        // 상품의 파싱된 치수로 새 Furniture 객체 생성
         double w = p.getWidthMm() > 0 ? p.getWidthMm() : type.width;
         double d = p.getDepthMm() > 0 ? p.getDepthMm() : type.depth;
         double h = p.getHeightMm() > 0 ? p.getHeightMm() : type.height;
@@ -342,7 +345,7 @@ public class RecommendationDialog extends JDialog {
 
         onPlaceFurniture.accept(f);
         JOptionPane.showMessageDialog(this,
-                "선택한 가구가 도면 중앙에 배치되었습니다!\n• 규격: 가로 " + (int)(w/10) + "cm × 세로 " + (int)(d/10) + "cm × 높이 " + (int)(h/10) + "cm\n2D 도면 및 3D 입체 탭에서 확인해 보세요.",
+                "선택한 가구가 도면 중앙에 배치되었습니다!\n• 가구명: " + p.getCleanTitle() + "\n• 규격: 가로 " + (int)(w/10) + "cm × 세로 " + (int)(d/10) + "cm × 높이 " + (int)(h/10) + "cm\n2D 도면 및 3D 입체 탭에서 확인해 보세요.",
                 "도면 배치 완료", JOptionPane.INFORMATION_MESSAGE);
     }
 
@@ -383,24 +386,6 @@ public class RecommendationDialog extends JDialog {
                 } catch (Exception ignored) {}
             }
         }.execute();
-    }
-
-    private void showApiConfigDialog() {
-        JTextField idField = new JTextField(shoppingService.getClientId(), 20);
-        JPasswordField secretField = new JPasswordField(shoppingService.getClientSecret(), 20);
-
-        JPanel p = new JPanel(new GridLayout(4, 1, 4, 4));
-        p.add(new JLabel("네이버 개발자 센터에서 발급받은 검색 API 키를 입력하세요:"));
-        p.add(new JLabel("Client ID:"));
-        p.add(idField);
-        p.add(new JLabel("Client Secret:"));
-        p.add(secretField);
-
-        int res = JOptionPane.showConfirmDialog(this, p, "네이버 검색 API 키 설정", JOptionPane.OK_CANCEL_OPTION);
-        if (res == JOptionPane.OK_OPTION) {
-            shoppingService.setApiCredentials(idField.getText(), new String(secretField.getPassword()));
-            JOptionPane.showMessageDialog(this, "API 키가 저장되었습니다.");
-        }
     }
 
     private JLabel createLabel(String text) {

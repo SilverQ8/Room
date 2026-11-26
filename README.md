@@ -32,7 +32,7 @@ JavaFX SDK는 옆 폴더 `..\Room-main\javafx-sdk-21.0.3\lib` 를 사용합니�
 | 가구가 **빨갛게** 표시됨 | 다른 가구나 벽과 겹침 (3D에서는 빨간 반투명 상자) |
 | 휠 / 휠 버튼 드래그 / Home | 확대·축소 / 이동 / 전체 보기 |
 | Ctrl+Z | 실행 취소 |
-| **🔍 가구 쇼핑 추천** 버튼 | 네이버 쇼핑 실시간 검색 및 근사치 가구 추천 (원클릭 도면 배치) |
+| **🔍 이케아 가구 쇼핑 추천** 버튼 | 이케아 실시간 검색 및 근사치 가구 추천 (API 키 불필요, 원클릭 도면 배치) |
 | **3D 입체** 탭 | 왼쪽 드래그 = 회전, 오른쪽 드래그 = 이동, 휠 = 확대·축소 |
 
 저장 파일 확장자는 `.rplan` (탭으로 구분된 텍스트라 메모장으로 열어 볼 수 있습니다).
@@ -53,7 +53,7 @@ JavaFX SDK는 옆 폴더 `..\Room-main\javafx-sdk-21.0.3\lib` 를 사용합니�
 | 8-2b | 가구 카탈로그 패널 | `ui/CatalogPanel`(카드 UI), `PlanEditor.addFurnitureAtCenter`(빈 자리 찾기), `MainFrame.onCatalogPick` |
 | 8-3 | 3D 가구 모델 | `ui/FurnitureModels` (기존 `FurnitureItem`의 Box 조합을 mm로 옮김), `ui/Viewer3D.build` |
 | 8-4 | 충돌 검사 | `model/Geometry`(분리축 정리 SAT), `model/Plan.collides` / `wallSolids` |
-| 9 | 네이버 쇼핑 실시간 가구 추천 | `ui/RecommendationDialog`, `service/NaverShoppingService`, `ProductDimensionParser` |
+| 9 | 이케아 실시간 가구 추천 | `ui/RecommendationDialog`, `service/IkeaShoppingService`, `ProductDimensionParser` |
 
 ## 핵심 개념 요약
 
