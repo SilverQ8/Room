@@ -1,9 +1,6 @@
 package com.roomplanner.ui;
 
-import com.roomplanner.model.Furniture;
-import com.roomplanner.model.Plan;
-import com.roomplanner.model.PlanIO;
-import com.roomplanner.model.SamplePlan;
+import com.roomplanner.model.*;
 import com.roomplanner.service.IkeaShoppingService;
 
 import javax.swing.*;
@@ -12,7 +9,9 @@ import java.awt.*;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.Comparator;
 import java.util.EnumMap;
+import java.util.List;
 import java.util.Map;
 
 /** 메인 창: 상단 도구 모음(2줄) + [2D 도면 | 3D 입체] 탭 + 하단 상태줄. */
@@ -161,7 +160,91 @@ public class MainFrame extends JFrame {
         recBtn.addActionListener(e -> openRecommendationDialog());
         bar.add(recBtn);
 
+        JButton simBtn = new JButton("🚪 문 통과 시뮬레이션");
+        simBtn.setFocusable(false);
+        simBtn.setFont(new Font("Malgun Gothic", Font.BOLD, 12));
+        simBtn.setForeground(new Color(0x7e, 0xe7, 0x87));
+        simBtn.addActionListener(e -> openPassageSimulationDialog());
+        bar.add(simBtn);
+
         return bar;
+    }
+
+    private void openPassageSimulationDialog() {
+        Plan plan = editor.getPlan();
+        List<Opening> doors = plan.getOpenings().stream()
+                .filter(o -> o.type() == Opening.Type.DOOR)
+                .toList();
+
+        if (doors.isEmpty()) {
+            JOptionPane.showMessageDialog(this,
+                    "도면에 문이 없습니다.\n문(D) 도구를 이용해 벽에 문을 먼저 배치해 주세요.",
+                    "문 없음", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        List<Furniture> furnitures = plan.getFurniture();
+        if (furnitures.isEmpty()) {
+            JOptionPane.showMessageDialog(this,
+                    "도면에 배치된 가구가 없습니다.\n카탈로그나 추천 검색을 통해 가구를 먼저 배치해 주세요.",
+                    "가구 없음", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        // 대상 가구 결정 (선택된 가구가 있으면 우선 사용, 없으면 선택 팝업)
+        Furniture targetFurniture = null;
+        if (editor.getSelected() instanceof Furniture f) {
+            targetFurniture = f;
+        } else if (furnitures.size() == 1) {
+            targetFurniture = furnitures.get(0);
+        } else {
+            String[] options = furnitures.stream()
+                    .map(f -> (f.getName() != null ? f.getName() : f.getType().label) +
+                            String.format(" (%.0f×%.0f cm)", f.getWidth() / 10.0, f.getDepth() / 10.0))
+                    .toArray(String[]::new);
+            String selectedStr = (String) JOptionPane.showInputDialog(this,
+                    "시뮬레이션할 가구를 선택하세요:", "가구 선택",
+                    JOptionPane.QUESTION_MESSAGE, null, options, options[0]);
+            if (selectedStr == null) return;
+            for (int i = 0; i < options.length; i++) {
+                if (options[i].equals(selectedStr)) {
+                    targetFurniture = furnitures.get(i);
+                    break;
+                }
+            }
+        }
+        if (targetFurniture == null) return;
+
+        // 대상 문 결정 (가장 가까운 문 우선)
+        final Furniture fRef = targetFurniture;
+        Opening targetDoor = doors.stream().min(Comparator.comparingDouble(d -> {
+            Point2D dCenter = d.wall().pointAt(d.offset() + d.width() / 2.0);
+            return Math.hypot(dCenter.x() - fRef.getX(), dCenter.y() - fRef.getY());
+        })).orElse(doors.get(0));
+
+        if (doors.size() > 1) {
+            String[] doorOptions = new String[doors.size()];
+            int defaultIdx = 0;
+            for (int i = 0; i < doors.size(); i++) {
+                Opening d = doors.get(i);
+                doorOptions[i] = String.format("문 #%d (폭 %.0f cm, 높이 %.0f cm)",
+                        i + 1, d.width() / 10.0, d.height() / 10.0);
+                if (d == targetDoor) defaultIdx = i;
+            }
+            String selectedDoor = (String) JOptionPane.showInputDialog(this,
+                    "가구가 통과할 문을 선택하세요 (가장 가까운 문 추천):", "문 선택",
+                    JOptionPane.QUESTION_MESSAGE, null, doorOptions, doorOptions[defaultIdx]);
+            if (selectedDoor == null) return;
+            for (int i = 0; i < doorOptions.length; i++) {
+                if (doorOptions[i].equals(selectedDoor)) {
+                    targetDoor = doors.get(i);
+                    break;
+                }
+            }
+        }
+
+        PassageSimulationDialog dlg = new PassageSimulationDialog(this, plan, targetFurniture, targetDoor);
+        dlg.setVisible(true);
     }
 
     private void openRecommendationDialog() {

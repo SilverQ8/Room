@@ -156,6 +156,8 @@ public class PlanEditor extends JPanel {
 
     public void setSelectionListener(Consumer<Object> l) { selectionListener = l; }
 
+    public Object getSelected() { return selected; }
+
     public void setSelected(Object obj) {
         selected = obj;
         if (selectionListener != null) selectionListener.accept(selected);
