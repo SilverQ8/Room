@@ -283,15 +283,16 @@ public class PassageSimulationDialog extends JDialog {
 
             int w = getWidth(), h = getHeight();
 
-            // 문 및 타겟 위치를 기준으로 중심 변환 및 스케일 자동 계산
+            // 문 및 시뮬레이션 경로 전체를 기준으로 중심 변환 및 스케일 자동 계산
             Wall wall = door.wall();
             Point2D pDoor = wall.pointAt(door.offset() + door.width() / 2.0);
-            Point2D pTarget = new Point2D(furniture.getX(), furniture.getY());
+            Point2D pStart = steps.get(0).position();
+            Point2D pEnd = steps.get(steps.size() - 1).position();
 
-            double minX = Math.min(pDoor.x(), pTarget.x()) - 1800;
-            double maxX = Math.max(pDoor.x(), pTarget.x()) + 1800;
-            double minY = Math.min(pDoor.y(), pTarget.y()) - 1800;
-            double maxY = Math.max(pDoor.y(), pTarget.y()) + 1800;
+            double minX = Math.min(Math.min(pDoor.x(), pStart.x()), pEnd.x()) - 1200;
+            double maxX = Math.max(Math.max(pDoor.x(), pStart.x()), pEnd.x()) + 1200;
+            double minY = Math.min(Math.min(pDoor.y(), pStart.y()), pEnd.y()) - 1200;
+            double maxY = Math.max(Math.max(pDoor.y(), pStart.y()), pEnd.y()) + 1200;
 
             double boundW = Math.max(100, maxX - minX);
             double boundH = Math.max(100, maxY - minY);
@@ -309,7 +310,7 @@ public class PassageSimulationDialog extends JDialog {
                 drawWallWithDoor(g, wl);
             }
 
-            // 2. 가구 최종 목표 위치 (점선 가이드)
+            // 2. 가구 최종 도착 위치 (점선 가이드)
             drawTargetGhost(g);
 
             // 3. 현재 프레임의 이동 중인 가구 그리기
@@ -374,13 +375,13 @@ public class PassageSimulationDialog extends JDialog {
         }
 
         private void drawTargetGhost(Graphics2D g) {
-            double[] dims = engine.getEffectiveDimensions(currentOrientation);
-            List<Point2D> corners = furniture.corners();
-            g.setColor(new Color(0x58, 0xa6, 0xff, 40));
-            fillPolygon(g, corners);
+            if (steps == null || steps.isEmpty()) return;
+            List<Point2D> finalCorners = steps.get(steps.size() - 1).corners();
+            g.setColor(new Color(0x58, 0xa6, 0xff, 35));
+            fillPolygon(g, finalCorners);
             g.setColor(new Color(0x58, 0xa6, 0xff, 120));
             g.setStroke(new BasicStroke(15f, BasicStroke.CAP_BUTT, BasicStroke.JOIN_MITER, 10f, new float[]{40f, 30f}, 0f));
-            drawPolygon(g, corners);
+            drawPolygon(g, finalCorners);
         }
 
         private void drawFurnitureAtState(Graphics2D g, StepState state) {

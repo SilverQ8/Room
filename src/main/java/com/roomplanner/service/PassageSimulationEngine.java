@@ -91,46 +91,35 @@ public class PassageSimulationEngine {
             normY = -normY;
         }
 
-        // 문 밖 진입 출발 지점 (문 중심에서 법선 반대 방향으로 1600mm)
-        double approachDist = Math.max(1600, effD * 1.5);
+        // 문 밖 진입 출발 지점 (문 중심에서 법선 반대 방향으로 1800mm)
+        double approachDist = Math.max(1600, Math.max(effW, effD) * 1.5);
         Point2D startPos = new Point2D(pDoorCenter.x() - normX * approachDist, pDoorCenter.y() - normY * approachDist);
 
-        // 문 안 도착 지점 (방 안 1600mm 지점 또는 원래 가구 위치 방향)
-        Point2D insidePos = new Point2D(pDoorCenter.x() + normX * 1200, pDoorCenter.y() + normY * 1200);
+        // 문 안 도착 지점 (방 안쪽으로 1800mm 일직선 관통 진입)
+        Point2D insidePos = new Point2D(pDoorCenter.x() + normX * approachDist, pDoorCenter.y() + normY * approachDist);
 
-        // 문을 통과할 때의 정렬 각도 (가구의 좁은 쪽이 문 폭과 일치하도록)
-        double passAngleDeg = Math.toDegrees(Math.atan2(normY, normX)) - 90;
-        if (effW > effD) {
-            passAngleDeg += 90;
+        // 문을 통과할 때의 최적 정렬 각도 (가구의 좁은 치수가 문틀 폭과 나란하도록 정렬)
+        double normAngleDeg = Math.toDegrees(Math.atan2(normY, normX));
+        double passAngleDeg;
+        if (effW <= effD) {
+            // 가로(W)가 더 좁음 -> 세로(D)가 진입 방향(norm)을 향하고, 가로(W)가 문틀 폭을 향함
+            passAngleDeg = normAngleDeg - 90;
+        } else {
+            // 세로(D)가 더 좁음 -> 가로(W)가 진입 방향(norm)을 향하고, 세로(D)가 문틀 폭을 향함
+            passAngleDeg = normAngleDeg;
         }
 
         // 벽 기둥 사각형들 (좌측 벽, 우측 벽)
         List<List<Point2D>> wallPolys = buildWallObstacles();
 
-        // 2. 전체 프레임 보간
+        // 2. 전체 프레임 보간 (문 통과 시뮬레이션에서는 불필요한 자체 회전 없이 반듯하게 일직선으로 통과)
         boolean hasCollidedEver = false;
         for (int i = 0; i <= totalSteps; i++) {
             double t = (double) i / totalSteps;
 
-            Point2D currentPos;
-            double currentRot;
-
-            if (t <= 0.5) {
-                // 문 밖 -> 문틀 통과 (t: 0.0 ~ 0.5)
-                double subT = t / 0.5;
-                currentPos = lerp(startPos, pDoorCenter, subT);
-                currentRot = passAngleDeg;
-            } else if (t <= 0.75) {
-                // 문틀 통과 -> 문 안쪽 진입 (t: 0.5 ~ 0.75)
-                double subT = (t - 0.5) / 0.25;
-                currentPos = lerp(pDoorCenter, insidePos, subT);
-                currentRot = lerpAngle(passAngleDeg, (passAngleDeg + furniture.getRotation()) / 2.0, subT);
-            } else {
-                // 문 안쪽 -> 최종 위치로 코너링 안착 (t: 0.75 ~ 1.0)
-                double subT = (t - 0.75) / 0.25;
-                currentPos = lerp(insidePos, targetPos, subT);
-                currentRot = lerpAngle((passAngleDeg + furniture.getRotation()) / 2.0, furniture.getRotation(), subT);
-            }
+            // 문 밖 -> 문틀 통과 -> 방 안 안전지대로 반듯하게 일직선 이동
+            Point2D currentPos = lerp(startPos, insidePos, t);
+            double currentRot = passAngleDeg; // 문 통과 자세 일정하게 유지 (불필요한 회전 방지)
 
             // 가구 폴리곤 계산
             List<Point2D> corners = computeCorners(currentPos, effW, effD, currentRot);
