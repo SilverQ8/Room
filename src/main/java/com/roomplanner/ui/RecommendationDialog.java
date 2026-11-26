@@ -57,7 +57,7 @@ public class RecommendationDialog extends JDialog {
         this.shoppingService = shoppingService;
         this.onPlaceFurniture = onPlaceFurniture;
 
-        setSize(900, 700);
+        setSize(960, 720);
         setLocationRelativeTo(parent);
         setLayout(new BorderLayout());
         getContentPane().setBackground(BG_DARK);
@@ -65,6 +65,12 @@ public class RecommendationDialog extends JDialog {
         add(buildHeaderPanel(), BorderLayout.NORTH);
         add(buildResultsPanel(), BorderLayout.CENTER);
         add(buildBottomBar(), BorderLayout.SOUTH);
+
+        // Enter 키를 누르면 바로 검색
+        keywordField.addActionListener(e -> performSearch());
+        widthField.addActionListener(e -> performSearch());
+        depthField.addActionListener(e -> performSearch());
+        heightField.addActionListener(e -> performSearch());
 
         // 초기 수치 세팅
         updateDefaultDimensions((Furniture.Type) typeCombo.getSelectedItem());
@@ -107,32 +113,42 @@ public class RecommendationDialog extends JDialog {
         header.add(topRow);
         header.add(Box.createVerticalStrut(12));
 
-        // 2행: 검색 입력 폼 (가구종류, 키워드, 치수, 검색버튼)
-        JPanel formRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
+        // 2행: 검색 입력 폼 (왼쪽 입력폼 + 오른쪽 검색 버튼 고정)
+        JPanel formRow = new JPanel(new BorderLayout(10, 0));
         formRow.setOpaque(false);
 
-        formRow.add(createLabel("종류:"));
-        formRow.add(typeCombo);
+        JPanel inputsLeft = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 2));
+        inputsLeft.setOpaque(false);
 
-        formRow.add(createLabel("추가 키워드:"));
+        inputsLeft.add(createLabel("종류:"));
+        inputsLeft.add(typeCombo);
+
+        inputsLeft.add(createLabel("키워드:"));
+        keywordField.setColumns(8);
         keywordField.setToolTipText("예: 원목, 화이트, 코너, 게이밍");
-        formRow.add(keywordField);
+        inputsLeft.add(keywordField);
 
-        formRow.add(createLabel("가로:"));
-        formRow.add(widthField);
-        formRow.add(createLabel("cm  세로:"));
-        formRow.add(depthField);
-        formRow.add(createLabel("cm  높이:"));
-        formRow.add(heightField);
-        formRow.add(createLabel("cm"));
+        inputsLeft.add(createLabel("가로:"));
+        widthField.setColumns(4);
+        inputsLeft.add(widthField);
+        inputsLeft.add(createLabel("cm  세로:"));
+        depthField.setColumns(4);
+        inputsLeft.add(depthField);
+        inputsLeft.add(createLabel("cm  높이:"));
+        heightField.setColumns(4);
+        inputsLeft.add(heightField);
+        inputsLeft.add(createLabel("cm"));
 
+        searchBtn.setPreferredSize(new Dimension(150, 32));
         searchBtn.setBackground(IKEA_BLUE);
         searchBtn.setForeground(IKEA_YELLOW);
-        searchBtn.setFont(searchBtn.getFont().deriveFont(Font.BOLD, 12f));
+        searchBtn.setFont(searchBtn.getFont().deriveFont(Font.BOLD, 13f));
+        searchBtn.setFocusPainted(false);
         searchBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         searchBtn.addActionListener(e -> performSearch());
 
-        formRow.add(searchBtn);
+        formRow.add(inputsLeft, BorderLayout.CENTER);
+        formRow.add(searchBtn, BorderLayout.EAST);
         header.add(formRow);
 
         return header;
