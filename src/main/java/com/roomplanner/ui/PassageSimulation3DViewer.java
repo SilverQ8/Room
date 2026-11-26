@@ -99,6 +99,103 @@ public class PassageSimulation3DViewer extends JFXPanel {
         Platform.runLater(() -> buildWorld(plan, door));
     }
 
+    /** 소파 옮기기 문제 - L자 복도 3D 환경 구축 */
+    public void setupLHallway(double w1, double w2, double wallH) {
+        Platform.runLater(() -> buildLHallwayWorld(w1, w2, wallH));
+    }
+
+    private void buildLHallwayWorld(double w1, double w2, double wallH) {
+        if (world == null) return;
+        world.getChildren().clear();
+
+        double thick = 150.0;
+        double armLen = 3500.0;
+
+        // 1. 바닥 (Ground)
+        Box ground = new Box(10000, 10, 10000);
+        ground.setMaterial(groundMat);
+        ground.setTranslateX(w1 / 2.0);
+        ground.setTranslateY(5);
+        ground.setTranslateZ(w2 / 2.0);
+        world.getChildren().add(ground);
+
+        // 2. L자 복도 벽체 (4개 벽)
+        // 안쪽 벽 1: x = 0 (y >= 0)
+        Box inWall1 = new Box(thick, wallH, armLen);
+        inWall1.setMaterial(wallMat);
+        inWall1.setTranslateX(-thick / 2.0);
+        inWall1.setTranslateY(-wallH / 2.0);
+        inWall1.setTranslateZ(-armLen / 2.0);
+
+        // 안쪽 벽 2: y = 0 (x <= 0)
+        Box inWall2 = new Box(armLen, wallH, thick);
+        inWall2.setMaterial(wallMat);
+        inWall2.setTranslateX(-armLen / 2.0);
+        inWall2.setTranslateY(-wallH / 2.0);
+        inWall2.setTranslateZ(-thick / 2.0);
+
+        // 바깥벽 1: x = w1 (y >= -w2)
+        Box outWall1 = new Box(thick, wallH, armLen + w2);
+        outWall1.setMaterial(wallMat);
+        outWall1.setTranslateX(w1 + thick / 2.0);
+        outWall1.setTranslateY(-wallH / 2.0);
+        outWall1.setTranslateZ(-(armLen - w2) / 2.0);
+
+        // 바깥벽 2: y = -w2 (x <= w1)
+        Box outWall2 = new Box(armLen + w1, wallH, thick);
+        outWall2.setMaterial(wallMat);
+        outWall2.setTranslateX(-(armLen - w1) / 2.0);
+        outWall2.setTranslateY(-wallH / 2.0);
+        outWall2.setTranslateZ(w2 + thick / 2.0);
+
+        world.getChildren().addAll(inWall1, inWall2, outWall1, outWall2);
+
+        // 안쪽 코너 피벗 기둥 강조 (0, 0)
+        Box pivotCol = new Box(thick * 1.1, wallH * 1.05, thick * 1.1);
+        pivotCol.setMaterial(doorFrameMat);
+        pivotCol.setTranslateX(0);
+        pivotCol.setTranslateY(-wallH / 2.0);
+        pivotCol.setTranslateZ(0);
+        world.getChildren().add(pivotCol);
+
+        // 3. 가구 3D Box
+        furnitureBox = new Box(100, 100, 100);
+        furnitureBox.setMaterial(normalMat);
+        furnitureRotY = new Rotate(0, Rotate.Y_AXIS);
+        furnitureBox.getTransforms().add(furnitureRotY);
+        world.getChildren().add(furnitureBox);
+
+        // 카메라 피벗 설정
+        pivot.setX(w1 / 2.0);
+        pivot.setY(-wallH / 2.0);
+        pivot.setZ(w2 / 2.0);
+        dist = 4500;
+        camDist.setZ(-dist);
+
+        light.setTranslateX(w1 + 1000);
+        light.setTranslateY(-4000);
+        light.setTranslateZ(-2000);
+    }
+
+    /** 소파 옮기기 3D 프레임 갱신 */
+    public void updateSofaStep(com.roomplanner.service.MovingSofaEngine.SofaStep step, double W, double L, double H) {
+        if (step == null) return;
+        Platform.runLater(() -> {
+            if (furnitureBox == null) return;
+
+            furnitureBox.setWidth(W);
+            furnitureBox.setDepth(L);
+            furnitureBox.setHeight(H);
+
+            furnitureBox.setTranslateX(step.center().x());
+            furnitureBox.setTranslateY(-H / 2.0);
+            furnitureBox.setTranslateZ(-step.center().y());
+
+            furnitureRotY.setAngle(-step.angleDeg());
+            furnitureBox.setMaterial(step.collided() ? collideMat : normalMat);
+        });
+    }
+
     private void buildWorld(Plan plan, Opening door) {
         if (world == null) return;
         world.getChildren().clear();
