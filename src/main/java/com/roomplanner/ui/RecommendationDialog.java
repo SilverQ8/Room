@@ -198,9 +198,6 @@ public class RecommendationDialog extends JDialog {
         bar.add(closeBtn, BorderLayout.EAST);
         return bar;
     }
-        bar.add(closeBtn, BorderLayout.EAST);
-        return bar;
-    }
 
     private void performSearch() {
         Furniture.Type type = (Furniture.Type) typeCombo.getSelectedItem();
