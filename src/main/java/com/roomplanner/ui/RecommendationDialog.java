@@ -1,7 +1,12 @@
 package com.roomplanner.ui;
 
 import com.roomplanner.model.Furniture;
+import com.roomplanner.model.Opening;
+import com.roomplanner.model.Plan;
 import com.roomplanner.model.ShoppingProduct;
+import com.roomplanner.service.DoorPassageChecker;
+import com.roomplanner.service.DoorPassageChecker.CheckResult;
+import com.roomplanner.service.DoorPassageChecker.Status;
 import com.roomplanner.service.IkeaShoppingService;
 
 import javax.imageio.ImageIO;
@@ -41,8 +46,11 @@ public class RecommendationDialog extends JDialog {
 
     private final IkeaShoppingService shoppingService;
     private final Consumer<Furniture> onPlaceFurniture;
+    private final List<Opening> doors;
+    private final DoorPassageChecker passageChecker = new DoorPassageChecker();
 
     private final JComboBox<Furniture.Type> typeCombo = new JComboBox<>(Furniture.Type.values());
+    private final JComboBox<String> doorCombo = new JComboBox<>();
     private final JTextField keywordField = new JTextField(10);
     private final JTextField widthField = new JTextField(5);
     private final JTextField depthField = new JTextField(5);
@@ -52,13 +60,20 @@ public class RecommendationDialog extends JDialog {
     private final JLabel statusHeaderLabel = new JLabel("가구 종류와 원하는 수치(cm)를 입력한 후 [이케아 추천 검색]을 누르세요.");
     private final JButton searchBtn = createStyledButton("이케아 추천 검색", IKEA_BLUE, IKEA_YELLOW, 13, true);
 
-    public RecommendationDialog(JFrame parent, IkeaShoppingService shoppingService, Consumer<Furniture> onPlaceFurniture) {
+    private List<ShoppingProduct> lastProducts = List.of();
+    private Furniture.Type lastType;
+    private double lastTargetW, lastTargetD;
+
+    public RecommendationDialog(JFrame parent, Plan plan, IkeaShoppingService shoppingService, Consumer<Furniture> onPlaceFurniture) {
         super(parent, "이케아(IKEA) 가구 규격 추천 및 실시간 검색", true);
         this.shoppingService = shoppingService;
         this.onPlaceFurniture = onPlaceFurniture;
+        this.doors = (plan != null)
+                ? plan.getOpenings().stream().filter(o -> o.type() == Opening.Type.DOOR).toList()
+                : List.of();
 
-        setSize(1020, 720);
-        setMinimumSize(new Dimension(880, 500));
+        setSize(1040, 740);
+        setMinimumSize(new Dimension(900, 520));
         setLocationRelativeTo(parent);
         setLayout(new BorderLayout());
         getContentPane().setBackground(BG_DARK);
@@ -102,6 +117,28 @@ public class RecommendationDialog extends JDialog {
         titleLbl.setFont(new Font("Malgun Gothic", Font.BOLD, 15));
         titleLbl.setForeground(ACCENT_BLUE);
 
+        JPanel topRight = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
+        topRight.setOpaque(false);
+
+        JLabel doorLbl = createLabel("통과 판정 기준 문:");
+        doorLbl.setFont(new Font("Malgun Gothic", Font.BOLD, 12));
+        if (doors.isEmpty()) {
+            doorCombo.addItem("표준 방문 (폭 90 × 높이 210 cm)");
+        } else {
+            for (int i = 0; i < doors.size(); i++) {
+                Opening d = doors.get(i);
+                doorCombo.addItem(String.format("도면 문 #%d (폭 %.0f × 높이 %.0f cm)", i + 1, d.width() / 10.0, d.height() / 10.0));
+            }
+        }
+        doorCombo.setFont(new Font("Malgun Gothic", Font.BOLD, 11));
+        doorCombo.setBackground(Color.WHITE);
+        doorCombo.setForeground(new Color(0x1f, 0x23, 0x28));
+        doorCombo.addActionListener(e -> {
+            if (!lastProducts.isEmpty() && lastType != null) {
+                displayResults(lastProducts, lastType, lastTargetW, lastTargetD);
+            }
+        });
+
         JLabel noKeyBadge = new JLabel(" 별도 API 키 없이 즉시 검색 가능 ");
         noKeyBadge.setOpaque(true);
         noKeyBadge.setBackground(new Color(0x1a, 0x40, 0x24));
@@ -109,8 +146,12 @@ public class RecommendationDialog extends JDialog {
         noKeyBadge.setFont(new Font("Malgun Gothic", Font.BOLD, 11));
         noKeyBadge.setBorder(new LineBorder(new Color(0x23, 0x86, 0x36), 1, true));
 
+        topRight.add(doorLbl);
+        topRight.add(doorCombo);
+        topRight.add(noKeyBadge);
+
         topRow.add(titleLbl, BorderLayout.WEST);
-        topRow.add(noKeyBadge, BorderLayout.EAST);
+        topRow.add(topRight, BorderLayout.EAST);
         header.add(topRow);
         header.add(Box.createVerticalStrut(12));
 
@@ -236,7 +277,20 @@ public class RecommendationDialog extends JDialog {
         }.execute();
     }
 
+    private Opening getSelectedDoor() {
+        if (doors.isEmpty()) {
+            return new Opening(Opening.Type.DOOR, null, 0, 900, 0, 2100);
+        }
+        int idx = doorCombo.getSelectedIndex();
+        return (idx >= 0 && idx < doors.size()) ? doors.get(idx) : doors.get(0);
+    }
+
     private void displayResults(List<ShoppingProduct> products, Furniture.Type type, double targetW, double targetD) {
+        this.lastProducts = products;
+        this.lastType = type;
+        this.lastTargetW = targetW;
+        this.lastTargetD = targetD;
+
         resultsContainer.removeAll();
 
         if (products.isEmpty()) {
@@ -250,9 +304,10 @@ public class RecommendationDialog extends JDialog {
                 products.size(), targetW / 10.0, targetD / 10.0));
 
         NumberFormat nf = NumberFormat.getInstance(Locale.KOREA);
+        Opening refDoor = getSelectedDoor();
 
         for (ShoppingProduct p : products) {
-            JPanel card = createProductCard(p, type, nf);
+            JPanel card = createProductCard(p, type, nf, refDoor);
             resultsContainer.add(card);
             resultsContainer.add(Box.createVerticalStrut(8));
         }
@@ -261,15 +316,15 @@ public class RecommendationDialog extends JDialog {
         resultsContainer.repaint();
     }
 
-    private JPanel createProductCard(ShoppingProduct p, Furniture.Type type, NumberFormat nf) {
+    private JPanel createProductCard(ShoppingProduct p, Furniture.Type type, NumberFormat nf, Opening refDoor) {
         JPanel card = new JPanel(new BorderLayout(12, 0));
         card.setBackground(CARD_BG);
         card.setBorder(new CompoundBorder(
                 new LineBorder(BORDER_COLOR, 1, true),
                 new EmptyBorder(10, 12, 10, 12)
         ));
-        card.setMaximumSize(new Dimension(Integer.MAX_VALUE, 95));
-        card.setPreferredSize(new Dimension(820, 95));
+        card.setMaximumSize(new Dimension(Integer.MAX_VALUE, 108));
+        card.setPreferredSize(new Dimension(860, 108));
 
         card.addMouseListener(new MouseAdapter() {
             @Override public void mouseEntered(MouseEvent e) { card.setBackground(CARD_HOVER); }
@@ -323,9 +378,44 @@ public class RecommendationDialog extends JDialog {
         dimBadge.setBorder(new LineBorder(ACCENT_BLUE, 1, true));
         subInfoRow.add(dimBadge);
 
+        // 문 통과 여부 판정 배지 (3D 실측 기반)
+        Furniture tempFurn = new Furniture(type, 0, 0);
+        tempFurn.setWidth(p.getWidthMm() > 0 ? p.getWidthMm() : type.width);
+        tempFurn.setDepth(p.getDepthMm() > 0 ? p.getDepthMm() : type.depth);
+        tempFurn.setHeight(p.getHeightMm() > 0 ? p.getHeightMm() : type.height);
+        CheckResult passRes = passageChecker.check(tempFurn, refDoor);
+
+        Color passBg, passFg, passBorder;
+        if (passRes.status() == Status.PASS_NORMAL) {
+            passBg = new Color(0x1a, 0x40, 0x24);
+            passFg = new Color(0x7e, 0xe7, 0x87);
+            passBorder = new Color(0x23, 0x86, 0x36);
+        } else if (passRes.status() == Status.PASS_ADJUSTED) {
+            passBg = new Color(0x4a, 0x35, 0x08);
+            passFg = new Color(0xf0, 0xc0, 0x50);
+            passBorder = new Color(0xd2, 0x99, 0x22);
+        } else {
+            passBg = new Color(0x4c, 0x1a, 0x1a);
+            passFg = new Color(0xff, 0x7b, 0x72);
+            passBorder = new Color(0xf8, 0x51, 0x49);
+        }
+
+        JLabel passBadge = new JLabel(" " + passRes.status().label + " — " + passRes.summary() + " ");
+        passBadge.setOpaque(true);
+        passBadge.setBackground(passBg);
+        passBadge.setForeground(passFg);
+        passBadge.setFont(new Font("Malgun Gothic", Font.BOLD, 11));
+        passBadge.setBorder(new LineBorder(passBorder, 1, true));
+        passBadge.setToolTipText(passRes.recommendation());
+
+        JPanel passRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 2));
+        passRow.setOpaque(false);
+        passRow.add(passBadge);
+
         infoPanel.add(titleLbl);
-        infoPanel.add(Box.createVerticalStrut(4));
+        infoPanel.add(Box.createVerticalStrut(3));
         infoPanel.add(subInfoRow);
+        infoPanel.add(passRow);
 
         card.add(infoPanel, BorderLayout.CENTER);
 

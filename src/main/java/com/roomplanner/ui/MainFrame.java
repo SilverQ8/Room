@@ -156,14 +156,14 @@ public class MainFrame extends JFrame {
         JButton recBtn = new JButton("[IKEA] 가구 추천 검색");
         recBtn.setFocusable(false);
         recBtn.setFont(new Font("Malgun Gothic", Font.BOLD, 12));
-        recBtn.setForeground(new Color(0x58, 0xa6, 0xff));
+        recBtn.setForeground(new Color(0x09, 0x69, 0xda));
         recBtn.addActionListener(e -> openRecommendationDialog());
         bar.add(recBtn);
 
         JButton simBtn = new JButton("🚪 문 통과 여부 확인");
         simBtn.setFocusable(false);
         simBtn.setFont(new Font("Malgun Gothic", Font.BOLD, 12));
-        simBtn.setForeground(new Color(0x7e, 0xe7, 0x87));
+        simBtn.setForeground(new Color(0x1a, 0x6b, 0x2c));
         simBtn.addActionListener(e -> openDoorPassageCheckDialog());
         bar.add(simBtn);
 
@@ -203,7 +203,7 @@ public class MainFrame extends JFrame {
     }
 
     private void openRecommendationDialog() {
-        RecommendationDialog dlg = new RecommendationDialog(this, shoppingService, f -> {
+        RecommendationDialog dlg = new RecommendationDialog(this, editor.getPlan(), shoppingService, f -> {
             tabs.setSelectedIndex(0);
             editor.addCustomFurnitureAtCenter(f);
             editor.requestFocusInWindow();

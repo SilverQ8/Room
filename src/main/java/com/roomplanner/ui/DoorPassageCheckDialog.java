@@ -120,9 +120,9 @@ public class DoorPassageCheckDialog extends JDialog {
             if (d == preselectedDoor) defaultIdx = i;
         }
         doorCombo.setSelectedIndex(defaultIdx);
-        doorCombo.setFont(new Font("Malgun Gothic", Font.PLAIN, 12));
-        doorCombo.setBackground(BG_DARK);
-        doorCombo.setForeground(TEXT_LIGHT);
+        doorCombo.setFont(new Font("Malgun Gothic", Font.BOLD, 12));
+        doorCombo.setBackground(Color.WHITE);
+        doorCombo.setForeground(new Color(0x1f, 0x23, 0x28));
         doorCombo.addActionListener(e -> evaluateAll());
 
         doorSelectPanel.add(doorLbl);
@@ -146,9 +146,23 @@ public class DoorPassageCheckDialog extends JDialog {
         resultTable.setGridColor(BORDER_COLOR);
         resultTable.setRowHeight(34);
         resultTable.setFont(new Font("Malgun Gothic", Font.PLAIN, 13));
-        resultTable.getTableHeader().setBackground(PANEL_BG);
-        resultTable.getTableHeader().setForeground(TEXT_LIGHT);
-        resultTable.getTableHeader().setFont(new Font("Malgun Gothic", Font.BOLD, 12));
+        resultTable.getTableHeader().setDefaultRenderer(new DefaultTableCellRenderer() {
+            @Override
+            public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected,
+                                                           boolean hasFocus, int row, int column) {
+                JLabel lbl = (JLabel) super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+                lbl.setBackground(PANEL_BG);
+                lbl.setForeground(TEXT_LIGHT);
+                lbl.setFont(new Font("Malgun Gothic", Font.BOLD, 12));
+                lbl.setHorizontalAlignment(SwingConstants.CENTER);
+                lbl.setBorder(BorderFactory.createCompoundBorder(
+                        BorderFactory.createMatteBorder(0, 0, 1, 1, BORDER_COLOR),
+                        new EmptyBorder(6, 8, 6, 8)
+                ));
+                lbl.setOpaque(true);
+                return lbl;
+            }
+        });
         resultTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
 
         resultTable.getColumnModel().getColumn(0).setPreferredWidth(180);
