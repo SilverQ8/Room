@@ -13,8 +13,9 @@ import java.util.List;
 public class PassageSimulationEngine {
 
     public enum PassageMode {
-        WIGGLE("코너 선진입 비틀기 회전 통과"),
-        STRAIGHT("일직선 통과");
+        SMART_AUTO("스마트 자동 (필요 시에만 꺾기)"),
+        FORCE_WIGGLE("코너 선진입 비틀기"),
+        FORCE_STRAIGHT("일직선 통과");
 
         public final String label;
         PassageMode(String label) { this.label = label; }
@@ -100,10 +101,23 @@ public class PassageSimulationEngine {
             normY = -normY;
         }
 
-        // 진행 방향 치수
+        // 진행 방향 치수 및 가구 최소 폭
         double travelLength = Math.max(effW, effD);
-        double minWidth = Math.min(effW, effD);
+        double minFurnitureWidth = Math.min(effW, effD);
         double travelDist = travelLength / 2.0 + 350.0;
+        double margin = doorLen - minFurnitureWidth; // 문틀 여유 폭
+
+        // 꺾기(비틀기) 필요 여부 판단:
+        // 여유가 8cm 이상으로 넉넉하면 굳이 꺾을 이유가 없으므로 반듯하게 직진 통과!
+        // 여유가 8cm 미만으로 빡빡할 때만 사람이 가구를 기울여 모서리부터 넣듯이 비틀기 수행!
+        boolean shouldWiggle;
+        if (mode == PassageMode.FORCE_WIGGLE) {
+            shouldWiggle = true;
+        } else if (mode == PassageMode.FORCE_STRAIGHT) {
+            shouldWiggle = false;
+        } else {
+            shouldWiggle = (margin < 80.0 && margin >= -30.0);
+        }
 
         // 문 통과 기본 정렬 각도 (가구의 좁은 쪽이 문틀 폭 방향과 나란함)
         double normAngleDeg = Math.toDegrees(Math.atan2(normY, normX));
@@ -123,37 +137,32 @@ public class PassageSimulationEngine {
             Point2D currentPos;
             double currentRot;
 
-            if (mode == PassageMode.STRAIGHT) {
-                // 직진 통과: 문 밖 -> 문틀 -> 문 안 일직선 이동
-                double travelOffset = (t - 0.5) * (travelDist * 2.0);
+            double travelOffset = (t - 0.5) * (travelDist * 2.0);
+
+            if (!shouldWiggle) {
+                // 1) 굳이 꺾을 필요가 없거나 일직선 통과: 문 밖 -> 문틀 -> 문 안 반듯하게 직진!
                 currentPos = new Point2D(pDoorCenter.x() + normX * travelOffset, pDoorCenter.y() + normY * travelOffset);
                 currentRot = basePassAngle;
             } else {
-                // 코너 선진입 비틀기(Wiggle) 통과
-                // 1) t: 0.0 ~ 0.35 : 비스듬히 기울여 모서리를 문틀 중앙으로 들이밀며 접근
-                // 2) t: 0.35 ~ 0.65 : 문틀을 지나며 +tilt -> -tilt 로 비틀기(Swivel)
-                // 3) t: 0.65 ~ 1.0 : 문틀을 완전히 빠져나오며 반듯하게 정렬
-                double tiltMax = 32.0; // 비틀기 최대 각도 (32도)
-
-                double travelOffset = (t - 0.5) * (travelDist * 2.0);
+                // 2) 여유가 빡빡하여 꺾어야 하는 경우: 코너 선진입 비틀기(Wiggle)
+                double tiltMax = 22.0; // 자연스러운 22도 틸트
                 double rotOffset;
                 double lateralOffset = 0;
 
                 if (t < 0.35) {
                     double subT = t / 0.35;
-                    rotOffset = tiltMax; // 비스듬히 기울인 상태로 접근
-                    lateralOffset = (1.0 - subT) * (-doorLen * 0.12);
+                    rotOffset = tiltMax * (0.5 + 0.5 * subT);
+                    lateralOffset = (1.0 - subT) * (-doorLen * 0.08);
                 } else if (t <= 0.65) {
-                    // 문틀 통과 중 비틀기 회전: +tiltMax -> -tiltMax 로 부드럽게 S자 회전
+                    // 문틀 통과 중: +tilt -> -tilt S자 부드러운 스위블
                     double subT = (t - 0.35) / 0.30;
-                    double smooth = Math.sin((subT - 0.5) * Math.PI); // -1.0 ~ +1.0
+                    double smooth = Math.sin((subT - 0.5) * Math.PI);
                     rotOffset = -smooth * tiltMax;
-                    // 가구 중심이 문틀 양쪽을 피해서 S자로 살짝 유영
-                    lateralOffset = -Math.cos(subT * Math.PI) * (doorLen * 0.08);
+                    lateralOffset = -Math.cos(subT * Math.PI) * (doorLen * 0.06);
                 } else {
                     double subT = (t - 0.65) / 0.35;
-                    rotOffset = -tiltMax * (1.0 - subT); // 방 안으로 진입하며 서서히 반듯하게 복귀
-                    lateralOffset = (1.0 - subT) * (doorLen * 0.05);
+                    rotOffset = -tiltMax * (1.0 - subT);
+                    lateralOffset = (1.0 - subT) * (doorLen * 0.04);
                 }
 
                 currentRot = basePassAngle + rotOffset;
@@ -190,13 +199,13 @@ public class PassageSimulationEngine {
             if (!collided) {
                 if (t >= 0.35 && t <= 0.65) {
                     double minClearance = Math.min(leftClearance, rightClearance);
-                    if (mode == PassageMode.WIGGLE) {
-                        msg = String.format("[비틀기 통과 중] 문틀 아슬아슬 스침 여유: %.1fcm", minClearance / 10.0);
+                    if (shouldWiggle) {
+                        msg = String.format("[비틀기 통과 중] 여유가 좁아 비틀어 통과 (문틀 스침 여유: %.1fcm)", minClearance / 10.0);
                     } else {
-                        msg = String.format("[직진 통과 중] 문틀 여유: %.1fcm", minClearance / 10.0);
+                        msg = String.format("[직진 안전 통과] 문 폭이 넉넉하여 반듯하게 통과 (여유: %.1fcm)", minClearance / 10.0);
                     }
                 } else if (t >= 0.95) {
-                    msg = "[성공] 문 통과 완료! 방 안으로 안전하게 들어왔습니다.";
+                    msg = "[성공] 문 통과 완료! 안전하게 반입되었습니다.";
                 }
             }
 

@@ -38,7 +38,7 @@ public class PassageSimulationDialog extends JDialog {
     private final Opening door;
     private final PassageSimulationEngine engine;
 
-    private PassageMode currentMode = PassageMode.WIGGLE;
+    private PassageMode currentMode = PassageMode.SMART_AUTO;
     private Orientation currentOrientation = Orientation.NORMAL;
     private List<StepState> steps;
     private int currentStepIndex = 0;
@@ -56,7 +56,7 @@ public class PassageSimulationDialog extends JDialog {
     private boolean isPlaying = false;
 
     public PassageSimulationDialog(JFrame parent, Plan plan, Furniture furniture, Opening door) {
-        super(parent, "가구 문 통과 및 비틀기 반입 시뮬레이션", true);
+        super(parent, "가구 문 통과 시뮬레이션 (2D & 3D)", true);
         this.plan = plan;
         this.furniture = furniture;
         this.door = door;
@@ -113,7 +113,7 @@ public class PassageSimulationDialog extends JDialog {
         JPanel row1 = new JPanel(new BorderLayout());
         row1.setOpaque(false);
 
-        JLabel titleLbl = new JLabel("🚪 가구 문 통과 (비틀어 넣기 & 직진) 시뮬레이션");
+        JLabel titleLbl = new JLabel("🚪 가구 문 통과 시뮬레이션");
         titleLbl.setFont(new Font("Malgun Gothic", Font.BOLD, 15));
         titleLbl.setForeground(ACCENT_BLUE);
 
