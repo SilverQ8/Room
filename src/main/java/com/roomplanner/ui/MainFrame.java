@@ -160,17 +160,17 @@ public class MainFrame extends JFrame {
         recBtn.addActionListener(e -> openRecommendationDialog());
         bar.add(recBtn);
 
-        JButton simBtn = new JButton("🚪 문 통과 시뮬레이션");
+        JButton simBtn = new JButton("🚪 문 통과 여부 확인");
         simBtn.setFocusable(false);
         simBtn.setFont(new Font("Malgun Gothic", Font.BOLD, 12));
         simBtn.setForeground(new Color(0x7e, 0xe7, 0x87));
-        simBtn.addActionListener(e -> openPassageSimulationDialog());
+        simBtn.addActionListener(e -> openDoorPassageCheckDialog());
         bar.add(simBtn);
 
         return bar;
     }
 
-    private void openPassageSimulationDialog() {
+    private void openDoorPassageCheckDialog() {
         Plan plan = editor.getPlan();
         List<Opening> doors = plan.getOpenings().stream()
                 .filter(o -> o.type() == Opening.Type.DOOR)
@@ -191,59 +191,14 @@ public class MainFrame extends JFrame {
             return;
         }
 
-        // 대상 가구 결정 (선택된 가구가 있으면 우선 사용, 없으면 선택 팝업)
-        Furniture targetFurniture = null;
-        if (editor.getSelected() instanceof Furniture f) {
-            targetFurniture = f;
-        } else if (furnitures.size() == 1) {
-            targetFurniture = furnitures.get(0);
-        } else {
-            String[] options = furnitures.stream()
-                    .map(f -> (f.getName() != null ? f.getName() : f.getType().label) +
-                            String.format(" (%.0f×%.0f cm)", f.getWidth() / 10.0, f.getDepth() / 10.0))
-                    .toArray(String[]::new);
-            String selectedStr = (String) JOptionPane.showInputDialog(this,
-                    "시뮬레이션할 가구를 선택하세요:", "가구 선택",
-                    JOptionPane.QUESTION_MESSAGE, null, options, options[0]);
-            if (selectedStr == null) return;
-            for (int i = 0; i < options.length; i++) {
-                if (options[i].equals(selectedStr)) {
-                    targetFurniture = furnitures.get(i);
-                    break;
-                }
-            }
-        }
-        if (targetFurniture == null) return;
-
-        // 대상 문 결정 (가장 가까운 문 우선)
-        final Furniture fRef = targetFurniture;
-        Opening targetDoor = doors.stream().min(Comparator.comparingDouble(d -> {
+        Furniture selectedFurniture = (editor.getSelected() instanceof Furniture f) ? f : furnitures.get(0);
+        final Furniture fRef = selectedFurniture;
+        Opening nearestDoor = doors.stream().min(Comparator.comparingDouble(d -> {
             Point2D dCenter = d.wall().pointAt(d.offset() + d.width() / 2.0);
             return Math.hypot(dCenter.x() - fRef.getX(), dCenter.y() - fRef.getY());
         })).orElse(doors.get(0));
 
-        if (doors.size() > 1) {
-            String[] doorOptions = new String[doors.size()];
-            int defaultIdx = 0;
-            for (int i = 0; i < doors.size(); i++) {
-                Opening d = doors.get(i);
-                doorOptions[i] = String.format("문 #%d (폭 %.0f cm, 높이 %.0f cm)",
-                        i + 1, d.width() / 10.0, d.height() / 10.0);
-                if (d == targetDoor) defaultIdx = i;
-            }
-            String selectedDoor = (String) JOptionPane.showInputDialog(this,
-                    "가구가 통과할 문을 선택하세요 (가장 가까운 문 추천):", "문 선택",
-                    JOptionPane.QUESTION_MESSAGE, null, doorOptions, doorOptions[defaultIdx]);
-            if (selectedDoor == null) return;
-            for (int i = 0; i < doorOptions.length; i++) {
-                if (doorOptions[i].equals(selectedDoor)) {
-                    targetDoor = doors.get(i);
-                    break;
-                }
-            }
-        }
-
-        PassageSimulationDialog dlg = new PassageSimulationDialog(this, plan, targetFurniture, targetDoor);
+        DoorPassageCheckDialog dlg = new DoorPassageCheckDialog(this, furnitures, doors, selectedFurniture, nearestDoor);
         dlg.setVisible(true);
     }
 
