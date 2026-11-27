@@ -139,16 +139,8 @@ public class RecommendationDialog extends JDialog {
             }
         });
 
-        JLabel noKeyBadge = new JLabel(" 별도 API 키 없이 즉시 검색 가능 ");
-        noKeyBadge.setOpaque(true);
-        noKeyBadge.setBackground(new Color(0x1a, 0x40, 0x24));
-        noKeyBadge.setForeground(new Color(0x7e, 0xe7, 0x87));
-        noKeyBadge.setFont(new Font("Malgun Gothic", Font.BOLD, 11));
-        noKeyBadge.setBorder(new LineBorder(new Color(0x23, 0x86, 0x36), 1, true));
-
         topRight.add(doorLbl);
         topRight.add(doorCombo);
-        topRight.add(noKeyBadge);
 
         topRow.add(titleLbl, BorderLayout.WEST);
         topRow.add(topRight, BorderLayout.EAST);
