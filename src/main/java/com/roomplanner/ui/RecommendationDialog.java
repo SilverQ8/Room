@@ -386,27 +386,23 @@ public class RecommendationDialog extends JDialog {
         CheckResult passRes = passageChecker.check(tempFurn, refDoor);
 
         Color passBg, passFg, passBorder;
-        if (passRes.status() == Status.PASS_NORMAL) {
+        if (passRes.status() == Status.PASS) {
             passBg = new Color(0x1a, 0x40, 0x24);
             passFg = new Color(0x7e, 0xe7, 0x87);
             passBorder = new Color(0x23, 0x86, 0x36);
-        } else if (passRes.status() == Status.PASS_ADJUSTED) {
-            passBg = new Color(0x4a, 0x35, 0x08);
-            passFg = new Color(0xf0, 0xc0, 0x50);
-            passBorder = new Color(0xd2, 0x99, 0x22);
         } else {
             passBg = new Color(0x4c, 0x1a, 0x1a);
             passFg = new Color(0xff, 0x7b, 0x72);
             passBorder = new Color(0xf8, 0x51, 0x49);
         }
 
-        JLabel passBadge = new JLabel(" " + passRes.status().label + " — " + passRes.summary() + " ");
+        JLabel passBadge = new JLabel(" " + passRes.status().label + " ");
         passBadge.setOpaque(true);
         passBadge.setBackground(passBg);
         passBadge.setForeground(passFg);
         passBadge.setFont(new Font("Malgun Gothic", Font.BOLD, 11));
         passBadge.setBorder(new LineBorder(passBorder, 1, true));
-        passBadge.setToolTipText(passRes.recommendation());
+        passBadge.setToolTipText(passRes.summary() + " — " + passRes.recommendation());
 
         JPanel passRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 2));
         passRow.setOpaque(false);

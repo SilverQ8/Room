@@ -13,8 +13,7 @@ import java.util.List;
 public class DoorPassageChecker {
 
     public enum Status {
-        PASS_NORMAL("통과 가능"),
-        PASS_ADJUSTED("자세 변경 시 통과"),
+        PASS("통과 가능"),
         FAIL("통과 불가");
 
         public final String label;
@@ -137,33 +136,33 @@ public class DoorPassageChecker {
             ));
         }
 
-        // 최종 종합 판정
+        // 최종 종합 판정 (통과 가능 / 통과 불가 2단계)
         Status status;
         String summary;
         String recommendation;
 
         if (normalPass) {
-            status = Status.PASS_NORMAL;
-            summary = String.format("기본 자세 그대로 통과 가능 (폭 여유 %.1f cm)", (dw - normalMinHoriz) / 10.0);
+            status = Status.PASS;
+            summary = String.format("통과 가능 (폭 여유 %.1f cm)", (dw - normalMinHoriz) / 10.0);
             recommendation = "가구를 세우거나 눕히지 않고 반듯하게 들고 통과할 수 있습니다.";
         } else if (liePass) {
-            status = Status.PASS_ADJUSTED;
-            summary = String.format("옆으로 눕혀서 통과 가능 (폭 여유 %.1f cm)", (dw - lieSecW) / 10.0);
-            recommendation = String.format("서서는 폭(%.0f cm)이 문(%.0f cm)보다 커서 안 되지만, 옆으로 눕히면(%.0f cm) 여유 있게 들어갑니다.",
-                    normalMinHoriz / 10.0, dw / 10.0, lieSecW / 10.0);
+            status = Status.PASS;
+            summary = String.format("통과 가능 (옆으로 눕혀서 폭 여유 %.1f cm)", (dw - lieSecW) / 10.0);
+            recommendation = String.format("옆으로 눕히면(%.0f cm) 문(%.0f cm)을 여유 있게 통과할 수 있습니다.",
+                    lieSecW / 10.0, dw / 10.0);
         } else if (bestOrthoPass) {
-            status = Status.PASS_ADJUSTED;
-            summary = String.format("방향 회전/눕힘으로 통과 가능 (폭 여유 %.1f cm)", (dw - bestSecW) / 10.0);
-            recommendation = String.format("가구의 가장 얇은 단면(%.0f×%.0f cm)을 문 방향에 맞추면 통과 가능합니다.",
+            status = Status.PASS;
+            summary = String.format("통과 가능 (방향 회전 시 폭 여유 %.1f cm)", (dw - bestSecW) / 10.0);
+            recommendation = String.format("가구의 얇은 단면(%.0f×%.0f cm)을 문 방향에 맞추면 통과 가능합니다.",
                     bestSecW / 10.0, bestSecH / 10.0);
         } else if (verticalPass) {
-            status = Status.PASS_ADJUSTED;
-            summary = String.format("세워서 반입 시 통과 가능 (폭 여유 %.1f cm)", (dw - vertW) / 10.0);
+            status = Status.PASS;
+            summary = String.format("통과 가능 (세워서 폭 여유 %.1f cm)", (dw - vertW) / 10.0);
             recommendation = "가구를 세워서 이동하면 문을 통과할 수 있습니다.";
         } else if (diagAngle != null) {
-            status = Status.PASS_ADJUSTED;
-            summary = String.format("대각선(%d°) 기울여 아슬아슬하게 통과 가능", diagAngle);
-            recommendation = String.format("문틀 대각선 공간을 활용해 약 %d° 기울여 넣어야 합니다. 문틀 손상 방지를 위해 보양을 권장합니다.", diagAngle);
+            status = Status.PASS;
+            summary = String.format("통과 가능 (대각선 %d° 기울여 통과)", diagAngle);
+            recommendation = String.format("문틀 대각선 공간을 활용해 약 %d° 기울여 넣을 수 있습니다.", diagAngle);
         } else {
             status = Status.FAIL;
             summary = String.format("통과 불가 (최소 단면 %.0f×%.0f cm > 문 %.0f×%.0f cm)",

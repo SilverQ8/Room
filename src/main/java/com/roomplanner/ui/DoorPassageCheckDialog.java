@@ -336,16 +336,14 @@ public class DoorPassageCheckDialog extends JDialog {
 
     private Color colorForStatus(Status st) {
         return switch (st) {
-            case PASS_NORMAL -> COLOR_PASS;
-            case PASS_ADJUSTED -> COLOR_WARN;
+            case PASS -> COLOR_PASS;
             case FAIL -> COLOR_FAIL;
         };
     }
 
     private String badgeText(Status st) {
         return switch (st) {
-            case PASS_NORMAL -> "통과 가능";
-            case PASS_ADJUSTED -> "자세 변경 시 통과";
+            case PASS -> "통과 가능";
             case FAIL -> "통과 불가";
         };
     }
