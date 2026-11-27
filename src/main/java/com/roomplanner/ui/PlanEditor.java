@@ -794,6 +794,7 @@ public class PlanEditor extends JPanel {
         if (tool == Tool.FURNITURE && ghostFurniture != null && cursor != null) {
             drawFurniture(g, ghostFurniture, true, plan.collides(ghostFurniture), false);
         }
+        drawSelectedWallOverlay(g);
         drawPreview(g);
         drawHud(g);
         g.dispose();
@@ -860,29 +861,33 @@ public class PlanEditor extends JPanel {
             g.setColor(w == selected ? SELECT_COLOR : WALL_COLOR);
             g.draw(new Line2D.Double(sx(w.start().x()), sy(w.start().y()), sx(w.end().x()), sy(w.end().y())));
         }
-        if (selected instanceof Wall w) {
-            // 선택된 벽의 양 끝점에 길이 조절 핸들(원) 표시
-            double r = 6;
-            g.setColor(SELECT_COLOR);
-            g.fill(new Ellipse2D.Double(sx(w.start().x()) - r, sy(w.start().y()) - r, r * 2, r * 2));
-            g.fill(new Ellipse2D.Double(sx(w.end().x()) - r, sy(w.end().y()) - r, r * 2, r * 2));
-            g.setColor(Color.WHITE);
-            g.setStroke(new BasicStroke(1.5f));
-            g.draw(new Ellipse2D.Double(sx(w.start().x()) - r, sy(w.start().y()) - r, r * 2, r * 2));
-            g.draw(new Ellipse2D.Double(sx(w.end().x()) - r, sy(w.end().y()) - r, r * 2, r * 2));
+    }
 
-            // 벽 중앙에 길이 치수 텍스트 표시
-            Point2D mid = w.pointAt(w.length() / 2.0);
-            String dim = String.format("%,d mm (두께 %,d mm)", Math.round(w.length()), Math.round(w.thickness()));
-            FontMetrics fm = g.getFontMetrics();
-            int tw = fm.stringWidth(dim);
-            g.setColor(new Color(255, 255, 255, 230));
-            g.fillRect((int) sx(mid.x()) - tw / 2 - 4, (int) sy(mid.y()) - fm.getAscent() - 2, tw + 8, fm.getHeight() + 4);
-            g.setColor(new Color(20, 20, 25));
-            g.drawRect((int) sx(mid.x()) - tw / 2 - 4, (int) sy(mid.y()) - fm.getAscent() - 2, tw + 8, fm.getHeight() + 4);
-            g.setColor(SELECT_COLOR);
-            g.drawString(dim, (float) (sx(mid.x()) - tw / 2.0), (float) sy(mid.y()));
-        }
+    /** 선택된 벽의 끝점 핸들과 치수 라벨을 문/가구 위에 최상단으로 그린다. */
+    private void drawSelectedWallOverlay(Graphics2D g) {
+        if (!(selected instanceof Wall w)) return;
+
+        double r = 6;
+        g.setColor(SELECT_COLOR);
+        g.fill(new Ellipse2D.Double(sx(w.start().x()) - r, sy(w.start().y()) - r, r * 2, r * 2));
+        g.fill(new Ellipse2D.Double(sx(w.end().x()) - r, sy(w.end().y()) - r, r * 2, r * 2));
+        g.setColor(Color.WHITE);
+        g.setStroke(new BasicStroke(1.5f));
+        g.draw(new Ellipse2D.Double(sx(w.start().x()) - r, sy(w.start().y()) - r, r * 2, r * 2));
+        g.draw(new Ellipse2D.Double(sx(w.end().x()) - r, sy(w.end().y()) - r, r * 2, r * 2));
+
+        // 벽 중앙에 길이 치수 텍스트 표시
+        Point2D mid = w.pointAt(w.length() / 2.0);
+        String dim = String.format("%,d mm (두께 %,d mm)", Math.round(w.length()), Math.round(w.thickness()));
+        FontMetrics fm = g.getFontMetrics();
+        int tw = fm.stringWidth(dim);
+        g.setColor(new Color(255, 255, 255, 240));
+        g.fillRect((int) sx(mid.x()) - tw / 2 - 4, (int) sy(mid.y()) - fm.getAscent() - 2, tw + 8, fm.getHeight() + 4);
+        g.setColor(new Color(20, 20, 25));
+        g.setStroke(new BasicStroke(1f));
+        g.drawRect((int) sx(mid.x()) - tw / 2 - 4, (int) sy(mid.y()) - fm.getAscent() - 2, tw + 8, fm.getHeight() + 4);
+        g.setColor(SELECT_COLOR);
+        g.drawString(dim, (float) (sx(mid.x()) - tw / 2.0), (float) sy(mid.y()));
     }
 
     private void drawOpening(Graphics2D g, Opening o, boolean isGhost, boolean isSelected) {
