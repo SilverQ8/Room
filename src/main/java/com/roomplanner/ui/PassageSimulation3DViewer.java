@@ -94,105 +94,91 @@ public class PassageSimulation3DViewer extends JFXPanel {
         setScene(scene);
     }
 
-    /** 3D 환경 구축 (도면의 벽체 및 문틀) */
+    /** 3D 환경 구축 (실제 도면의 벽체 및 문틀) */
     public void setup(Plan plan, Opening door) {
         Platform.runLater(() -> buildWorld(plan, door));
     }
 
-    /** 소파 옮기기 문제 - L자 복도 3D 환경 구축 */
-    public void setupLHallway(double w1, double w2, double wallH) {
-        Platform.runLater(() -> buildLHallwayWorld(w1, w2, wallH));
-    }
-
-    private void buildLHallwayWorld(double w1, double w2, double wallH) {
+    private void buildWorld(Plan plan, Opening door) {
         if (world == null) return;
         world.getChildren().clear();
 
-        double thick = 150.0;
-        double armLen = 3500.0;
+        Wall doorWall = door.wall();
+        Point2D doorCenter = doorWall.pointAt(door.offset() + door.width() / 2.0);
 
         // 1. 바닥 (Ground)
-        Box ground = new Box(10000, 10, 10000);
+        Box ground = new Box(16000, 10, 16000);
         ground.setMaterial(groundMat);
-        ground.setTranslateX(w1 / 2.0);
-        ground.setTranslateY(5);
-        ground.setTranslateZ(w2 / 2.0);
+        ground.setTranslateX(doorCenter.x());
+        ground.setTranslateY(5); // 바닥 표면이 Y=0
+        ground.setTranslateZ(-doorCenter.y());
         world.getChildren().add(ground);
 
-        // 2. L자 복도 벽체 (4개 벽)
-        // 안쪽 벽 1: x = 0 (y >= 0)
-        Box inWall1 = new Box(thick, wallH, armLen);
-        inWall1.setMaterial(wallMat);
-        inWall1.setTranslateX(-thick / 2.0);
-        inWall1.setTranslateY(-wallH / 2.0);
-        inWall1.setTranslateZ(-armLen / 2.0);
+        // 2. 도면의 실제 벽체 생성 (문이 뚫린 벽은 개구부 형태로 렌더링)
+        for (Wall w : plan.getWalls()) {
+            addWall3D(w, plan.openingsOf(w));
+        }
 
-        // 안쪽 벽 2: y = 0 (x <= 0)
-        Box inWall2 = new Box(armLen, wallH, thick);
-        inWall2.setMaterial(wallMat);
-        inWall2.setTranslateX(-armLen / 2.0);
-        inWall2.setTranslateY(-wallH / 2.0);
-        inWall2.setTranslateZ(-thick / 2.0);
+        // 3. 문틀 기둥 강조 (좌/우 문틀 기둥)
+        Point2D pLeft = doorWall.pointAt(door.offset());
+        Point2D pRight = doorWall.pointAt(door.endOffset());
+        double doorH = door.height();
 
-        // 바깥벽 1: x = w1 (y >= -w2)
-        Box outWall1 = new Box(thick, wallH, armLen + w2);
-        outWall1.setMaterial(wallMat);
-        outWall1.setTranslateX(w1 + thick / 2.0);
-        outWall1.setTranslateY(-wallH / 2.0);
-        outWall1.setTranslateZ(-(armLen - w2) / 2.0);
+        Box leftJamb = new Box(doorWall.thickness() * 1.15, doorH, doorWall.thickness() * 1.15);
+        leftJamb.setMaterial(doorFrameMat);
+        leftJamb.setTranslateX(pLeft.x());
+        leftJamb.setTranslateY(-doorH / 2.0);
+        leftJamb.setTranslateZ(-pLeft.y());
 
-        // 바깥벽 2: y = -w2 (x <= w1)
-        Box outWall2 = new Box(armLen + w1, wallH, thick);
-        outWall2.setMaterial(wallMat);
-        outWall2.setTranslateX(-(armLen - w1) / 2.0);
-        outWall2.setTranslateY(-wallH / 2.0);
-        outWall2.setTranslateZ(w2 + thick / 2.0);
+        Box rightJamb = new Box(doorWall.thickness() * 1.15, doorH, doorWall.thickness() * 1.15);
+        rightJamb.setMaterial(doorFrameMat);
+        rightJamb.setTranslateX(pRight.x());
+        rightJamb.setTranslateY(-doorH / 2.0);
+        rightJamb.setTranslateZ(-pRight.y());
 
-        world.getChildren().addAll(inWall1, inWall2, outWall1, outWall2);
+        world.getChildren().addAll(leftJamb, rightJamb);
 
-        // 안쪽 코너 피벗 기둥 강조 (0, 0)
-        Box pivotCol = new Box(thick * 1.1, wallH * 1.05, thick * 1.1);
-        pivotCol.setMaterial(doorFrameMat);
-        pivotCol.setTranslateX(0);
-        pivotCol.setTranslateY(-wallH / 2.0);
-        pivotCol.setTranslateZ(0);
-        world.getChildren().add(pivotCol);
-
-        // 3. 가구 3D Box
+        // 4. 가구 3D 박스 생성
         furnitureBox = new Box(100, 100, 100);
         furnitureBox.setMaterial(normalMat);
         furnitureRotY = new Rotate(0, Rotate.Y_AXIS);
         furnitureBox.getTransforms().add(furnitureRotY);
         world.getChildren().add(furnitureBox);
 
-        // 카메라 피벗 설정
-        pivot.setX(w1 / 2.0);
-        pivot.setY(-wallH / 2.0);
-        pivot.setZ(w2 / 2.0);
-        dist = 4500;
+        // 카메라 피벗을 문 중심으로 정렬
+        pivot.setX(doorCenter.x());
+        pivot.setY(-doorH / 2.0);
+        pivot.setZ(-doorCenter.y());
+        dist = 4000;
         camDist.setZ(-dist);
 
-        light.setTranslateX(w1 + 1000);
+        light.setTranslateX(doorCenter.x() + 1000);
         light.setTranslateY(-4000);
-        light.setTranslateZ(-2000);
+        light.setTranslateZ(-doorCenter.y() - 2000);
     }
 
-    /** 소파 옮기기 3D 프레임 갱신 */
-    public void updateSofaStep(com.roomplanner.service.MovingSofaEngine.SofaStep step, double W, double L, double H) {
-        if (step == null) return;
+    /** 3D 프레임 갱신 (가구 위치/회전/크기/충돌색상) */
+    public void updateStep(StepState state, double[] dims) {
+        if (state == null || dims == null) return;
         Platform.runLater(() -> {
             if (furnitureBox == null) return;
 
-            furnitureBox.setWidth(W);
-            furnitureBox.setDepth(L);
-            furnitureBox.setHeight(H);
+            double effW = dims[0];
+            double effD = dims[1];
+            double effH = dims[2];
 
-            furnitureBox.setTranslateX(step.center().x());
-            furnitureBox.setTranslateY(-H / 2.0);
-            furnitureBox.setTranslateZ(-step.center().y());
+            furnitureBox.setWidth(effW);
+            furnitureBox.setDepth(effD);
+            furnitureBox.setHeight(effH);
 
-            furnitureRotY.setAngle(-step.angleDeg());
-            furnitureBox.setMaterial(step.collided() ? collideMat : normalMat);
+            furnitureBox.setTranslateX(state.position().x());
+            furnitureBox.setTranslateY(-effH / 2.0); // 바닥(Y=0) 위에 안착
+            furnitureBox.setTranslateZ(-state.position().y());
+
+            // 2D rotationDeg (반시계) -> 3D Y축 회전
+            furnitureRotY.setAngle(-state.rotationDeg());
+
+            furnitureBox.setMaterial(state.collided() ? collideMat : normalMat);
         });
     }
 

@@ -3,15 +3,23 @@ package com.roomplanner.service;
 import com.roomplanner.model.*;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 
 /**
- * 가구가 문을 통과하여 방 안으로 진입하는 경로와 충돌(문틀/벽)을 실시간으로 계산하는 시뮬레이션 엔진.
+ * 가구 문 통과 시뮬레이션 엔진.
+ * 1) 직진 통과 모드 (STRAIGHT)
+ * 2) 코너 선진입 비틀기 회전 통과 모드 (WIGGLE / SWIVEL) - 소파/침대를 비스듬히 기울여 모서리부터 넣고 비틀어 빼는 현실적 통과 모션
  */
 public class PassageSimulationEngine {
 
-    /** 가구 반입 자세 */
+    public enum PassageMode {
+        WIGGLE("코너 선진입 비틀기 회전 통과"),
+        STRAIGHT("일직선 통과");
+
+        public final String label;
+        PassageMode(String label) { this.label = label; }
+    }
+
     public enum Orientation {
         NORMAL("기본 자세 (서서 반입)"),
         TILT_SIDE("옆으로 눕혀서 반입"),
@@ -22,7 +30,6 @@ public class PassageSimulationEngine {
         Orientation(String label) { this.label = label; }
     }
 
-    /** 시뮬레이션 특정 프레임의 가구 상태 */
     public record StepState(
             double progress,       // 0.0 ~ 1.0
             Point2D position,
@@ -46,7 +53,6 @@ public class PassageSimulationEngine {
         this.wall = door.wall();
     }
 
-    /** 해당 운반 자세에서의 가구 2D 투영 규격 및 높이 [w, d, h] */
     public double[] getEffectiveDimensions(Orientation orient) {
         double w = furniture.getWidth();
         double d = furniture.getDepth();
@@ -60,8 +66,10 @@ public class PassageSimulationEngine {
         };
     }
 
-    /** 전체 경로를 0%~100% (총 steps개) 프레임으로 미리 계산하여 반환 */
-    public List<StepState> computeSimulation(Orientation orient, int totalSteps) {
+    /**
+     * 시뮬레이션 프레임 계산 (직진 모드 또는 코너 선진입 비틀기 모드)
+     */
+    public List<StepState> computeSimulation(PassageMode mode, Orientation orient, int totalSteps) {
         List<StepState> steps = new ArrayList<>(totalSteps);
 
         double[] dims = getEffectiveDimensions(orient);
@@ -69,7 +77,6 @@ public class PassageSimulationEngine {
         double effD = dims[1];
         double effH = dims[2];
 
-        // 1. 문의 위치 및 법선 벡터 계산
         double doorLen = door.width();
         double doorOffset = door.offset();
         Point2D pLeft = wall.pointAt(doorOffset);
@@ -77,50 +84,84 @@ public class PassageSimulationEngine {
         Point2D pDoorCenter = wall.pointAt(doorOffset + doorLen / 2.0);
 
         double wallAngle = wall.angle();
-        // 벽에 수직인 법선 벡터 (문 밖/문 안 판별)
+        // 벽 단위벡터 (좌 -> 우)
+        double ux = Math.cos(wallAngle);
+        double uy = Math.sin(wallAngle);
+
+        // 법선 벡터 (문 통과 방향)
         double normX = -Math.sin(wallAngle);
         double normY = Math.cos(wallAngle);
 
-        // 가구의 목표 위치 (방 안 기존 위치)
+        // 가구의 목표 위치 방향으로 문 안/밖 결정
         Point2D targetPos = new Point2D(furniture.getX(), furniture.getY());
-
-        // 타겟 위치가 문 중심 기준으로 법선 벡터의 어느 쪽에 있는지 확인하여 문 안/문 밖 방향 결정
         double dotTarget = (targetPos.x() - pDoorCenter.x()) * normX + (targetPos.y() - pDoorCenter.y()) * normY;
         if (dotTarget < 0) {
             normX = -normX;
             normY = -normY;
         }
 
-        // 진행 방향 치수 (가구 길이의 절반) 계산
+        // 진행 방향 치수
         double travelLength = Math.max(effW, effD);
-        // 가구 앞머리가 문틀 200mm 앞에서 시작하여, 가구 꼬리가 문틀을 200mm 빠져나온 위치까지만 이동 (벽만 통과)
-        double travelDist = travelLength / 2.0 + 250.0;
+        double minWidth = Math.min(effW, effD);
+        double travelDist = travelLength / 2.0 + 350.0;
 
-        Point2D startPos = new Point2D(pDoorCenter.x() - normX * travelDist, pDoorCenter.y() - normY * travelDist);
-        Point2D insidePos = new Point2D(pDoorCenter.x() + normX * travelDist, pDoorCenter.y() + normY * travelDist);
-
-        // 문을 통과할 때의 최적 정렬 각도 (가구의 좁은 치수가 문틀 폭과 나란하도록 정렬)
+        // 문 통과 기본 정렬 각도 (가구의 좁은 쪽이 문틀 폭 방향과 나란함)
         double normAngleDeg = Math.toDegrees(Math.atan2(normY, normX));
-        double passAngleDeg;
+        double basePassAngle;
         if (effW <= effD) {
-            // 가로(W)가 더 좁음 -> 세로(D)가 진입 방향(norm)을 향하고, 가로(W)가 문틀 폭을 향함
-            passAngleDeg = normAngleDeg - 90;
+            basePassAngle = normAngleDeg - 90;
         } else {
-            // 세로(D)가 더 좁음 -> 가로(W)가 진입 방향(norm)을 향하고, 세로(D)가 문틀 폭을 향함
-            passAngleDeg = normAngleDeg;
+            basePassAngle = normAngleDeg;
         }
 
-        // 문이 뚫려있는 해당 벽의 좌/우 문틀 기둥 벽 조각만 장애물로 설정 (방 안쪽 다른 벽과 무관)
-        List<List<Point2D>> wallPolys = buildWallObstacles();
+        // 문틀 벽 조각들
+        List<List<Point2D>> wallPolys = buildDoorWallObstacles();
 
-        // 2. 전체 프레임 보간 (문 통과 시뮬레이션: 문틀을 정확히 빠져나오는 구간만 직선 이동)
-        boolean hasCollidedEver = false;
         for (int i = 0; i <= totalSteps; i++) {
             double t = (double) i / totalSteps;
 
-            // 문 밖 -> 문틀 통과 -> 문 안쪽으로 벽만 쏙 통과
-            Point2D currentPos = lerp(startPos, insidePos, t);
-            double currentRot = passAngleDeg; // 문 통과 자세 일정하게 유지
+            Point2D currentPos;
+            double currentRot;
+
+            if (mode == PassageMode.STRAIGHT) {
+                // 직진 통과: 문 밖 -> 문틀 -> 문 안 일직선 이동
+                double travelOffset = (t - 0.5) * (travelDist * 2.0);
+                currentPos = new Point2D(pDoorCenter.x() + normX * travelOffset, pDoorCenter.y() + normY * travelOffset);
+                currentRot = basePassAngle;
+            } else {
+                // 코너 선진입 비틀기(Wiggle) 통과
+                // 1) t: 0.0 ~ 0.35 : 비스듬히 기울여 모서리를 문틀 중앙으로 들이밀며 접근
+                // 2) t: 0.35 ~ 0.65 : 문틀을 지나며 +tilt -> -tilt 로 비틀기(Swivel)
+                // 3) t: 0.65 ~ 1.0 : 문틀을 완전히 빠져나오며 반듯하게 정렬
+                double tiltMax = 32.0; // 비틀기 최대 각도 (32도)
+
+                double travelOffset = (t - 0.5) * (travelDist * 2.0);
+                double rotOffset;
+                double lateralOffset = 0;
+
+                if (t < 0.35) {
+                    double subT = t / 0.35;
+                    rotOffset = tiltMax; // 비스듬히 기울인 상태로 접근
+                    lateralOffset = (1.0 - subT) * (-doorLen * 0.12);
+                } else if (t <= 0.65) {
+                    // 문틀 통과 중 비틀기 회전: +tiltMax -> -tiltMax 로 부드럽게 S자 회전
+                    double subT = (t - 0.35) / 0.30;
+                    double smooth = Math.sin((subT - 0.5) * Math.PI); // -1.0 ~ +1.0
+                    rotOffset = -smooth * tiltMax;
+                    // 가구 중심이 문틀 양쪽을 피해서 S자로 살짝 유영
+                    lateralOffset = -Math.cos(subT * Math.PI) * (doorLen * 0.08);
+                } else {
+                    double subT = (t - 0.65) / 0.35;
+                    rotOffset = -tiltMax * (1.0 - subT); // 방 안으로 진입하며 서서히 반듯하게 복귀
+                    lateralOffset = (1.0 - subT) * (doorLen * 0.05);
+                }
+
+                currentRot = basePassAngle + rotOffset;
+                currentPos = new Point2D(
+                        pDoorCenter.x() + normX * travelOffset + ux * lateralOffset,
+                        pDoorCenter.y() + normY * travelOffset + uy * lateralOffset
+                );
+            }
 
             // 가구 폴리곤 계산
             List<Point2D> corners = computeCorners(currentPos, effW, effD, currentRot);
@@ -131,9 +172,8 @@ public class PassageSimulationEngine {
 
             // 충돌 검사
             boolean collided = false;
-            String msg = "[진행] 문 통과 중...";
+            String msg = "[진행] 문으로 진입 중...";
 
-            // 높이 검사 (가구 운반 높이가 문 높이 2100mm를 초과하는지)
             if (effH > door.height()) {
                 collided = true;
                 msg = String.format("[충돌] 문 높이 초과 (가구 높이 %.0fcm > 문 높이 %.0fcm)", effH / 10, door.height() / 10);
@@ -141,24 +181,22 @@ public class PassageSimulationEngine {
                 for (List<Point2D> wallPoly : wallPolys) {
                     if (Geometry.overlap(corners, wallPoly)) {
                         collided = true;
-                        msg = "[충돌] 문틀에 걸림! (가구 폭이 문보다 큼)";
+                        msg = "[충돌] 문틀에 걸림! (가구가 문보다 큼)";
                         break;
                     }
                 }
             }
 
-            if (collided) hasCollidedEver = true;
-
             if (!collided) {
-                if (t >= 0.40 && t <= 0.60) {
+                if (t >= 0.35 && t <= 0.65) {
                     double minClearance = Math.min(leftClearance, rightClearance);
-                    if (minClearance < 30) {
-                        msg = String.format("[주의] 문틀 여유 부족 (여유 %.1fcm)", minClearance / 10.0);
+                    if (mode == PassageMode.WIGGLE) {
+                        msg = String.format("[비틀기 통과 중] 문틀 아슬아슬 스침 여유: %.1fcm", minClearance / 10.0);
                     } else {
-                        msg = String.format("[안전] 문틀 안전 통과 (여유 %.1fcm)", minClearance / 10.0);
+                        msg = String.format("[직진 통과 중] 문틀 여유: %.1fcm", minClearance / 10.0);
                     }
                 } else if (t >= 0.95) {
-                    msg = "[성공] 문 통과 완료! 문을 안전하게 통과했습니다.";
+                    msg = "[성공] 문 통과 완료! 방 안으로 안전하게 들어왔습니다.";
                 }
             }
 
@@ -168,37 +206,24 @@ public class PassageSimulationEngine {
         return steps;
     }
 
-    /** 문이 위치한 벽의 좌측/우측 기둥 조각만 충돌 장애물 폴리곤으로 생성 */
-    private List<List<Point2D>> buildWallObstacles() {
+    /** 문이 위치한 벽의 좌/우 문틀 기둥 벽 조각만 장애물로 생성 */
+    private List<List<Point2D>> buildDoorWallObstacles() {
         List<List<Point2D>> polys = new ArrayList<>();
         double thickness = wall.thickness();
 
-        // 1. 문이 있는 벽의 좌측 조각
-        if (door.offset() > 10) {
+        if (door.offset() > 5) {
             Point2D p0 = wall.pointAt(0);
             Point2D p1 = wall.pointAt(door.offset());
             polys.add(Geometry.thickLine(p0, p1, thickness));
         }
 
-        // 2. 문이 있는 벽의 우측 조각
-        if (wall.length() - door.endOffset() > 10) {
+        if (wall.length() - door.endOffset() > 5) {
             Point2D p2 = wall.pointAt(door.endOffset());
             Point2D p3 = wall.pointAt(wall.length());
             polys.add(Geometry.thickLine(p2, p3, thickness));
         }
 
         return polys;
-    }
-
-    private static Point2D lerp(Point2D a, Point2D b, double t) {
-        return new Point2D(a.x() + (b.x() - a.x()) * t, a.y() + (b.y() - a.y()) * t);
-    }
-
-    private static double lerpAngle(double aDeg, double bDeg, double t) {
-        double diff = (bDeg - aDeg) % 360;
-        if (diff < -180) diff += 360;
-        if (diff > 180) diff -= 360;
-        return aDeg + diff * t;
     }
 
     private static List<Point2D> computeCorners(Point2D center, double w, double d, double rotDeg) {
@@ -226,8 +251,7 @@ public class PassageSimulationEngine {
     }
 
     private static double distancePointToSegment(Point2D p, Point2D a, Point2D b) {
-        double dx = b.x() - a.x();
-        double dy = b.y() - a.y();
+        double dx = b.x() - a.x(), dy = b.y() - a.y();
         double l2 = dx * dx + dy * dy;
         if (l2 == 0) return p.distanceTo(a);
         double t = Math.max(0, Math.min(1, ((p.x() - a.x()) * dx + (p.y() - a.y()) * dy) / l2));
